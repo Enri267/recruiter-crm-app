@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recruiter-CRM – DACH Unternehmens- & Vakanzmanagement</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ============================================================
+     RECRUITER CRM – Styles
+     Frei anpassbar. CSS-Variablen für einfaches Re-Theming.
+     ============================================================ */
+  :root {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface-2: #f0f3f7;
+    --border: #e1e5eb;
+    --text: #1a2332;
+    --text-muted: #5a6b7c;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --de: #000000;
+    --at: #ed2939;
+    --ch: #d52b1e;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: var(--shadow);
+  }
+  header h1 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  header .subtitle {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  main { padding: 20px 24px; max-width: 1600px; margin: 0 auto; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .stat-card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .stat-card .value {
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .stat-card.accent { border-left: 3px solid var(--accent); }
+  .stat-card.success { border-left: 3px solid var(--success); }
+  .stat-card.warning { border-left: 3px solid var(--warning); }
+
+  /* Legal notice */
+  .legal {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .legal strong { color: #78350f; }
+  .legal details summary { cursor: pointer; font-weight: 600; }
+  .legal p { margin: 8px 0 0 0; }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--surface);
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: end;
+  }
+  .toolbar .field { display: flex; flex-direction: column; gap: 4px; }
+  .toolbar label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+  .toolbar input, .toolbar select {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    min-width: 140px;
+  }
+  .toolbar .spacer { flex: 1; }
+
+  /* Buttons */
+  button {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  button:hover { background: var(--surface-2); }
+  button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { background: var(--danger); color: white; border-color: var(--danger); }
+  button.danger:hover { opacity: 0.9; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: 4px 8px; }
+  button.ghost:hover { background: var(--surface-2); color: var(--text); }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: auto;
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--surface-2);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th.sorted::after { content: " ↓"; color: var(--accent); }
+  thead th.sorted-asc::after { content: " ↑"; color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody td { padding: 10px 12px; vertical-align: top; }
+  tbody tr.incomplete { background: #fffbeb; }
+  tbody tr.incomplete:hover { background: #fef3c7; }
+  tbody tr.duplicate { background: #fef2f2; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .badge-de { background: #1f2937; color: white; }
+  .badge-at { background: #ed2939; color: white; }
+  .badge-ch { background: #d52b1e; color: white; }
+  .badge-fachkraft { background: #dbeafe; color: #1e40af; }
+  .badge-azubi { background: #dcfce7; color: #166534; }
+  .badge-sonstige { background: #f3f4f6; color: #374151; }
+  .badge-new { background: var(--success); color: white; }
+  .badge-warn { background: var(--warning); color: white; }
+  .priority-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .priority-high { background: var(--success); }
+  .priority-mid { background: var(--warning); }
+  .priority-low { background: var(--text-muted); }
+
+  .company-name { font-weight: 600; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+  .empty-indicator { color: var(--warning); font-weight: 600; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    max-width: 720px;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+    padding: 24px;
+  }
+  .modal h2 { margin: 0 0 16px 0; font-size: 18px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .form-field input, .form-field select, .form-field textarea {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .form-field textarea { resize: vertical; min-height: 60px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .section-title {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--text);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Auswahl-Leiste */
+  .selection-bar {
+    position: sticky;
+    top: 0;
+    background: var(--accent);
+    color: white;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+    animation: slideDown 0.2s ease-out;
+  }
+  .selection-bar.active { display: flex; }
+  .selection-bar .count { font-weight: 600; font-size: 15px; }
+  .selection-bar button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .selection-bar button:hover { background: rgba(255,255,255,0.9); }
+  .selection-bar button.ghost-white {
+    background: transparent;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .selection-bar button.ghost-white:hover {
+    background: rgba(255,255,255,0.15);
+  }
+  .selection-bar .spacer { flex: 1; }
+  @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Checkbox-Spalte */
+  .col-select { width: 36px; padding: 6px 4px 6px 12px !important; }
+  .col-select input[type="checkbox"] { cursor: pointer; transform: scale(1.15); }
+  tbody tr.selected { background: #dbeafe !important; }
+  tbody tr.selected:hover { background: #bfdbfe !important; }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .empty-state h3 { color: var(--text); margin: 0 0 8px 0; }
+
+  @media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar input, .toolbar select { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎯 Recruiter-CRM DACH</h1>
+  <div class="subtitle">Unternehmens- und Vakanzmanagement für Personalvermittler · Deutschland · Österreich · Schweiz</div>
+</header>
+
+<main>
+
+  <!-- Rechtlicher Hinweis -->
+  <div class="legal">
+    <details>
+      <summary>⚖️ Rechtlicher Hinweis zum Umgang mit Firmen- und Personendaten (bitte lesen)</summary>
+      <p>Diese App ist ein <strong>Verwaltungs-Werkzeug</strong>. Sie enthält bewusst <strong>keine automatisierte Datenbeschaffung</strong> (Scraping) von Jobportalen, Unternehmenswebsites oder sozialen Netzwerken – das wäre sowohl technisch aus einer Browser-App heraus unmöglich als auch in der Regel ein Verstoß gegen die AGB der Portale sowie die DSGVO/BDSG.</p>
+      <p>Integrierte Quellen: <strong>Arbeitnow.com</strong> (freie API, DE/EU Tech-Jobs) direkt in der App, <strong>Bundesagentur für Arbeit</strong> (größte Stellendatenbank DE) über das beigelegte Node.js-Importskript. Beide Quellen liefern ausschließlich <strong>Unternehmensdaten</strong>, keine personenbezogenen HR-Kontaktdaten – damit DSGVO-unkritisch. Weitere rechtskonforme Quellen: Eigene Netzwerkkontakte, manuelle Recherche, Handelsregister.</p>
+    </details>
+  </div>
+
+  <!-- Statistiken -->
+  <div class="stats" id="stats"></div>
+
+  <!-- Filter & Aktionen -->
+  <div class="toolbar">
+    <div class="field">
+      <label>Suche</label>
+      <input type="search" id="searchInput" placeholder="Firma, Ort, Stelle...">
+    </div>
+    <div class="field">
+      <label>Land</label>
+      <select id="filterCountry">
+        <option value="">Alle (DE priorisiert)</option>
+        <option value="DE">🇩🇪 Deutschland</option>
+        <option value="AT">🇦🇹 Österreich</option>
+        <option value="CH">🇨🇭 Schweiz</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Bundesland (DE)</label>
+      <select id="filterState">
+        <option value="">Alle Bundesländer</option>
+        <option value="BW">Baden-Württemberg</option>
+        <option value="BY">Bayern</option>
+        <option value="BE">Berlin</option>
+        <option value="BB">Brandenburg</option>
+        <option value="HB">Bremen</option>
+        <option value="HH">Hamburg</option>
+        <option value="HE">Hessen</option>
+        <option value="MV">Mecklenburg-Vorpommern</option>
+        <option value="NI">Niedersachsen</option>
+        <option value="NW">Nordrhein-Westfalen</option>
+        <option value="RP">Rheinland-Pfalz</option>
+        <option value="SL">Saarland</option>
+        <option value="SN">Sachsen</option>
+        <option value="ST">Sachsen-Anhalt</option>
+        <option value="SH">Schleswig-Holstein</option>
+        <option value="TH">Thüringen</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Branche</label>
+      <select id="filterIndustry"><option value="">Alle</option></select>
+    </div>
+    <div class="field">
+      <label>Positionstyp</label>
+      <select id="filterPositionType">
+        <option value="">Alle</option>
+        <option value="Fachkraft">Fachkraft</option>
+        <option value="Azubi">Ausbildung (Azubi)</option>
+        <option value="Sonstige">Sonstige</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Veröffentlicht seit</label>
+      <select id="filterDateRange">
+        <option value="">Egal</option>
+        <option value="7">Letzte 7 Tage</option>
+        <option value="14">Letzte 14 Tage</option>
+        <option value="30">Letzte 30 Tage</option>
+        <option value="90">Letzte 90 Tage</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="filterStatus">
+        <option value="">Alle</option>
+        <option value="complete">Nur vollständige</option>
+        <option value="incomplete">Nur unvollständige</option>
+      </select>
+    </div>
+    <div class="spacer"></div>
+    <button class="primary" onclick="openModal()">+ Neuer Eintrag</button>
+    <button onclick="openApiModal()">📡 Aus API laden</button>
+    <button onclick="document.getElementById('importFile').click()">📥 Import</button>
+    <button onclick="exportJSON()">JSON ↓</button>
+    <button onclick="exportCSV()">CSV ↓</button>
+    <button onclick="repairLinks()" title="Alle Arbeitsagentur-Links auf das neue Format aktualisieren">🔧 Links reparieren</button>
+    <button onclick="cleanOldEntries()" title="Einträge ohne präzise Referenznummer entfernen (ermöglicht frischen Import mit besseren Links)">🧹 Alte bereinigen</button>
+    <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImport(event)">
+  </div>
+
+  <!-- Auswahl-Leiste (erscheint, wenn Einträge markiert sind) -->
+  <div class="selection-bar" id="selectionBar">
+    <span class="count" id="selectionCount">0 Stellen ausgewählt</span>
+    <div class="spacer"></div>
+    <button onclick="exportSelectionToExcel()">📥 Als Excel exportieren</button>
+    <button class="ghost-white" onclick="clearSelection()">Auswahl aufheben</button>
+  </div>
+
+  <!-- Tabelle -->
+  <div class="table-wrap">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th class="col-select"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()" title="Alle in dieser Ansicht markieren"></th>
+          <th data-sort="priority">⚑</th>
+          <th data-sort="companyName">Unternehmen</th>
+          <th data-sort="industry">Branche</th>
+          <th data-sort="location">Ort</th>
+          <th>Kontakt</th>
+          <th>HR-Ansprechpartner</th>
+          <th data-sort="positionType">Position</th>
+          <th data-sort="startDate">Eintritt</th>
+          <th data-sort="publicationDate" class="sorted">Veröffentlicht</th>
+          <th>Quelle</th>
+          <th>Aktion</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- Modal für API-Import -->
+<div class="modal-backdrop" id="apiModalBackdrop">
+  <div class="modal" style="max-width: 900px;">
+    <h2>📡 Jobs aus API laden</h2>
+
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+      <strong>Bundesagentur für Arbeit</strong> – größte Stellendatenbank Deutschlands, alle Branchen inkl. Ausbildung. Daten werden über deinen Render-Proxy abgerufen.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Datenquelle</label>
+        <select id="apiSource">
+          <option value="arbeitsagentur">Bundesagentur für Arbeit (alle Branchen)</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Stichwort (Jobtitel, Skill, Beruf)</label>
+        <input type="text" id="apiKeyword" placeholder="z. B. Entwickler, Pflege, Logistik">
+      </div>
+      <div class="form-field">
+        <label>Ort</label>
+        <input type="text" id="apiLocation" placeholder="z. B. Berlin, München, Hamburg">
+      </div>
+      <div class="form-field">
+        <label>Umkreis (km)</label>
+        <select id="apiRadius">
+          <option value="10">10 km</option>
+          <option value="25" selected>25 km</option>
+          <option value="50">50 km</option>
+          <option value="100">100 km</option>
+          <option value="200">200 km</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Positionstyp</label>
+        <select id="apiJobType">
+          <option value="1">Fachkraft (Arbeit)</option>
+          <option value="4">Ausbildung (Azubi)</option>
+          <option value="34">Praktikum/Trainee</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Veröffentlicht seit (Tage)</label>
+        <select id="apiDays">
+          <option value="7">7 Tage</option>
+          <option value="14">14 Tage</option>
+          <option value="30" selected>30 Tage</option>
+          <option value="90">90 Tage</option>
+        </select>
+      </div>
+      <div class="form-field arbeitnow-only">
+        <label>Land-Filter</label>
+        <select id="apiCountry" style="display:none">
+          <option value="DE">DE</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Max. Anzahl</label>
+        <select id="apiLimit">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; gap: 8px;">
+      <button class="primary" onclick="fetchApiJobs()" id="apiFetchBtn">🔍 Jobs laden</button>
+      <button onclick="closeApiModal()">Abbrechen</button>
+      <div class="spacer" style="flex: 1;"></div>
+      <span id="apiStatus" class="muted"></span>
+    </div>
+
+    <div id="apiResultsWrap" style="display: none; margin-top: 16px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <strong id="apiResultCount"></strong>
+        <button class="ghost" onclick="toggleAllApiResults(true)">Alle</button>
+        <button class="ghost" onclick="toggleAllApiResults(false)">Keine</button>
+        <div class="spacer" style="flex: 1;"></div>
+        <button class="primary" onclick="importSelectedApiJobs()">Ausgewählte importieren</button>
+      </div>
+      <div id="apiResults" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal für Neu/Bearbeiten -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Neuer Eintrag</h2>
+    <form id="entryForm" onsubmit="saveEntry(event)">
+      <input type="hidden" id="entryId">
+      <div class="form-grid">
+
+        <div class="section-title">Unternehmensdaten</div>
+        <div class="form-field full">
+          <label>Unternehmensname *</label>
+          <input type="text" id="companyName" required>
+        </div>
+        <div class="form-field">
+          <label>Stadt *</label>
+          <input type="text" id="city" required>
+        </div>
+        <div class="form-field">
+          <label>Land *</label>
+          <select id="country" required>
+            <option value="DE">🇩🇪 Deutschland</option>
+            <option value="AT">🇦🇹 Österreich</option>
+            <option value="CH">🇨🇭 Schweiz</option>
+          </select>
+        </div>
+        <div class="form-field full">
+          <label>Branche *</label>
+          <input type="text" id="industry" list="industryList" required placeholder="z. B. Maschinenbau, IT & Software, Gesundheitswesen">
+          <datalist id="industryList">
+            <option>IT & Software</option>
+            <option>Maschinenbau</option>
+            <option>Automotive</option>
+            <option>Gesundheitswesen / Pflege</option>
+            <option>Logistik & Transport</option>
+            <option>Einzelhandel</option>
+            <option>Finanzen & Versicherungen</option>
+            <option>Bauwesen</option>
+            <option>Chemie & Pharma</option>
+            <option>Elektrotechnik</option>
+            <option>Gastronomie & Hotellerie</option>
+            <option>Handwerk</option>
+            <option>Bildung</option>
+            <option>Öffentlicher Dienst</option>
+            <option>Energie & Versorgung</option>
+            <option>Medien & Marketing</option>
+          </datalist>
+        </div>
+
+        <div class="section-title">Allgemeine Kontaktdaten</div>
+        <div class="form-field">
+          <label>Telefon</label>
+          <input type="tel" id="phone">
+        </div>
+        <div class="form-field">
+          <label>E-Mail</label>
+          <input type="email" id="email">
+        </div>
+        <div class="form-field full">
+          <label>Website</label>
+          <input type="url" id="website" placeholder="https://...">
+        </div>
+
+        <div class="section-title">HR-Ansprechpartner (optional – DSGVO beachten!)</div>
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" id="hrName">
+        </div>
+        <div class="form-field">
+          <label>Position</label>
+          <input type="text" id="hrPosition" placeholder="z. B. HR Manager">
+        </div>
+        <div class="form-field">
+          <label>Telefon (direkt)</label>
+          <input type="tel" id="hrPhone">
+        </div>
+        <div class="form-field">
+          <label>E-Mail (direkt)</label>
+          <input type="email" id="hrEmail">
+        </div>
+
+        <div class="section-title">Stellenausschreibung</div>
+        <div class="form-field full">
+          <label>Stellentitel</label>
+          <input type="text" id="jobTitle" placeholder="z. B. Softwareentwickler (m/w/d)">
+        </div>
+        <div class="form-field">
+          <label>Positionstyp *</label>
+          <select id="positionType" required>
+            <option value="Fachkraft">Fachkraft</option>
+            <option value="Azubi">Ausbildung (Azubi)</option>
+            <option value="Sonstige">Sonstige</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Veröffentlichungsdatum *</label>
+          <input type="date" id="publicationDate" required>
+        </div>
+        <div class="form-field">
+          <label>Frühestes Eintrittsdatum</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="form-field">
+          <label>Quelle *</label>
+          <input type="text" id="source" required placeholder="z. B. Karriereseite, arbeitsagentur.de, StepStone">
+        </div>
+        <div class="form-field full">
+          <label>Quellen-URL</label>
+          <input type="url" id="sourceUrl" placeholder="https://...">
+        </div>
+        <div class="form-field full">
+          <label>Notizen</label>
+          <textarea id="notes" placeholder="Interne Notizen, Gesprächsverläufe, nächste Schritte..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   RECRUITER CRM – JavaScript
+   Datenhaltung: Zentrale Cloud-Datenbank (Supabase via Render-Backend)
+   Multi-User-Zugriff über URL-Schlüssel
+   Auto-Refresh alle 30 Sekunden
+   Alle Felder, Filter, Sortierungen, Import/Export frei anpassbar.
+   ================================================================ */
+
+// ⚙️ KONFIGURATION
+//    PROXY_URL: Adresse deines Render-Servers (z. B. https://recruiter-crm-proxy.onrender.com)
+//    APP_KEY:   Geheimer URL-Schlüssel (wird automatisch aus URL gelesen, falls vorhanden)
+const PROXY_URL = 'https://recruiter-crm-proxy.onrender.com';
+
+// URL-Schlüssel automatisch aus der eigenen URL lesen
+const APP_KEY = (function() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('key') || '';
+})();
+
+// Helper: API-URL bauen mit Schlüssel
+function apiUrl(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  return PROXY_URL.replace(/\/$/, '') + path + sep + 'key=' + encodeURIComponent(APP_KEY);
+}
+
+let entries = [];
+let sortField = 'publicationDate';
+let sortDir = 'desc'; // 'desc' oder 'asc'
+
+// --- Laden / Speichern (jetzt vom Server!) ----------------------
+async function loadData() {
+  if (!APP_KEY) {
+    showAuthError('Kein URL-Schlüssel angegeben. Bitte URL mit ?key=... aufrufen.');
+    return;
+  }
+  try {
+    const res = await fetch(apiUrl('/api/entries'));
+    if (res.status === 401) {
+      showAuthError('Ungültiger URL-Schlüssel. Bitte korrekten Link verwenden.');
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    entries = await res.json();
+    // Auswahl mit existierenden IDs abgleichen (gelöschte Einträge entfernen)
+    const validIds = new Set(entries.map(e => e.id));
+    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
+    render();
+  } catch (e) {
+    console.error('Fehler beim Laden', e);
+    toast('⚠ Fehler beim Laden vom Server: ' + e.message);
+  }
+}
+
+function showAuthError(msg) {
+  document.body.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+      <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 480px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+        <h2 style="margin: 0 0 12px 0;">Zugriff verweigert</h2>
+        <p style="color: #666; margin: 0;">${msg}</p>
+        <p style="color: #999; font-size: 13px; margin-top: 20px;">Bitte wende dich an den Administrator.</p>
+      </div>
+    </div>`;
+}
+
+async function saveEntryToServer(entry, isNew) {
+  if (isNew) {
+    const res = await fetch(apiUrl('/api/entries'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    if (!res.ok) throw new Error(`Speichern fehlgeschlagen: HTTP ${res.status}`);
+  } else {
+    const res = await fetch(apiUrl('/api/entries/' + encodeURIComponent(entry.id)), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    if (!res.ok) throw new Error(`Update fehlgeschlagen: HTTP ${res.status}`);
+  }
+}
+
+async function deleteEntryFromServer(id) {
+  const res = await fetch(apiUrl('/api/entries/' + encodeURIComponent(id)), { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Löschen fehlgeschlagen: HTTP ${res.status}`);
+}
+
+async function bulkInsertToServer(arr) {
+  const res = await fetch(apiUrl('/api/entries'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(arr)
+  });
+  if (!res.ok) throw new Error(`Bulk-Insert fehlgeschlagen: HTTP ${res.status}`);
+  return res.json();
+}
+
+// Auto-Refresh alle 30 Sekunden, damit Mitarbeiter neue Einträge zeitnah sehen
+setInterval(() => {
+  if (APP_KEY && document.visibilityState === 'visible') {
+    loadData();
+  }
+}, 30000);
+
+// (saveData ist nicht mehr nötig - jeder einzelne Eintrag wird live gespeichert)
+function saveData() { /* no-op - alles geht über Server */ }
+
+// --- Beispieldaten (beim ersten Aufruf) -------------------------
+function getSampleData() {
+  const today = new Date();
+  const d = (offset) => {
+    const x = new Date(today);
+    x.setDate(x.getDate() - offset);
+    return x.toISOString().slice(0, 10);
+  };
+  return [
+    {
+      id: genId(),
+      companyName: 'Muster Maschinenbau GmbH',
+      city: 'München', country: 'DE',
+      industry: 'Maschinenbau',
+      phone: '+49 89 1234567', email: 'info@muster-maschinenbau.example',
+      website: 'https://muster-maschinenbau.example',
+      hrName: '', hrPosition: '', hrPhone: '', hrEmail: '',
+      jobTitle: 'Mechatroniker (m/w/d)',
+      positionType: 'Fachkraft',
+      publicationDate: d(3),
+      startDate: d(-30),
+      source: 'Karriereseite',
+      sourceUrl: 'https://muster-maschinenbau.example/karriere',
+      notes: 'Beispieldatensatz – bitte anpassen oder löschen.'
+    },
+    {
+      id: genId(),
+      companyName: 'Beispiel IT Solutions AG',
+      city: 'Berlin', country: 'DE',
+      industry: 'IT & Software',
+      phone: '+49 30 9876543', email: 'karriere@beispiel-it.example',
+      website: 'https://beispiel-it.example',
+      hrName: 'Anna Muster', hrPosition: 'HR Managerin',
+      hrPhone: '', hrEmail: 'a.muster@beispiel-it.example',
+      jobTitle: 'DevOps Engineer (m/w/d)',
+      positionType: 'Fachkraft',
+      publicationDate: d(1),
+      startDate: '',
+      source: 'arbeitsagentur.de',
+      sourceUrl: '',
+      notes: 'Beispieldatensatz.'
+    },
+    {
+      id: genId(),
+      companyName: 'Musterbäckerei Huber',
+      city: 'Wien', country: 'AT',
+      industry: 'Gastronomie & Hotellerie',
+      phone: '+43 1 5551234', email: '',
+      website: '',
+      hrName: '', hrPosition: '', hrPhone: '', hrEmail: '',
+      jobTitle: 'Bäcker/in – Lehrling',
+      positionType: 'Azubi',
+      publicationDate: d(10),
+      startDate: d(-60),
+      source: 'AMS.at',
+      sourceUrl: '',
+      notes: 'Beispieldatensatz.'
+    }
+  ];
+}
+
+// --- Bundesland-Erkennung ---------------------------------------
+// Mapping wichtiger deutscher Städte zu Bundesländern (BL = "Bundesland-Code").
+// Nicht erkannte Städte werden als "?" markiert und können manuell zugeordnet werden.
+const STATE_NAMES = {
+  BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg',
+  HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
+  NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz',
+  SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt',
+  SH: 'Schleswig-Holstein', TH: 'Thüringen'
+};
+
+const CITY_TO_STATE = {
+  // Baden-Württemberg
+  'stuttgart': 'BW', 'mannheim': 'BW', 'karlsruhe': 'BW', 'freiburg': 'BW', 'heidelberg': 'BW',
+  'heilbronn': 'BW', 'ulm': 'BW', 'pforzheim': 'BW', 'reutlingen': 'BW', 'esslingen': 'BW',
+  'tübingen': 'BW', 'tubingen': 'BW', 'ludwigsburg': 'BW', 'konstanz': 'BW', 'singen': 'BW',
+  'radolfzell': 'BW', 'friedrichshafen': 'BW', 'ravensburg': 'BW', 'aalen': 'BW', 'göppingen': 'BW',
+  'sindelfingen': 'BW', 'schwäbisch gmünd': 'BW', 'offenburg': 'BW', 'baden-baden': 'BW',
+  'rastatt': 'BW', 'bruchsal': 'BW', 'villingen-schwenningen': 'BW', 'lörrach': 'BW',
+  'weinheim': 'BW', 'biberach': 'BW', 'leinfelden-echterdingen': 'BW', 'allensbach': 'BW',
+  'überlingen': 'BW', 'meersburg': 'BW', 'tuttlingen': 'BW', 'rottweil': 'BW',
+  // Bayern
+  'münchen': 'BY', 'munchen': 'BY', 'munich': 'BY', 'nürnberg': 'BY', 'nurnberg': 'BY',
+  'augsburg': 'BY', 'regensburg': 'BY', 'ingolstadt': 'BY', 'würzburg': 'BY', 'wurzburg': 'BY',
+  'fürth': 'BY', 'furth': 'BY', 'erlangen': 'BY', 'bayreuth': 'BY', 'bamberg': 'BY',
+  'aschaffenburg': 'BY', 'landshut': 'BY', 'kempten': 'BY', 'rosenheim': 'BY', 'passau': 'BY',
+  'schweinfurt': 'BY', 'ansbach': 'BY', 'memmingen': 'BY', 'hof': 'BY', 'amberg': 'BY',
+  'coburg': 'BY', 'straubing': 'BY', 'weiden': 'BY', 'garmisch-partenkirchen': 'BY',
+  'freising': 'BY', 'dachau': 'BY', 'fürstenfeldbruck': 'BY', 'kaufbeuren': 'BY',
+  // Berlin
+  'berlin': 'BE',
+  // Brandenburg
+  'potsdam': 'BB', 'cottbus': 'BB', 'brandenburg': 'BB', 'frankfurt (oder)': 'BB',
+  'oranienburg': 'BB', 'eberswalde': 'BB', 'königs wusterhausen': 'BB', 'falkensee': 'BB',
+  // Bremen
+  'bremen': 'HB', 'bremerhaven': 'HB',
+  // Hamburg
+  'hamburg': 'HH',
+  // Hessen
+  'frankfurt': 'HE', 'frankfurt am main': 'HE', 'wiesbaden': 'HE', 'kassel': 'HE',
+  'darmstadt': 'HE', 'offenbach': 'HE', 'hanau': 'HE', 'gießen': 'HE', 'giessen': 'HE',
+  'marburg': 'HE', 'fulda': 'HE', 'rüsselsheim': 'HE', 'wetzlar': 'HE', 'bad homburg': 'HE',
+  'oberursel': 'HE', 'bensheim': 'HE',
+  // Mecklenburg-Vorpommern
+  'rostock': 'MV', 'schwerin': 'MV', 'neubrandenburg': 'MV', 'stralsund': 'MV', 'greifswald': 'MV',
+  'wismar': 'MV',
+  // Niedersachsen
+  'hannover': 'NI', 'hanover': 'NI', 'braunschweig': 'NI', 'osnabrück': 'NI', 'osnabruck': 'NI',
+  'oldenburg': 'NI', 'göttingen': 'NI', 'gottingen': 'NI', 'wolfsburg': 'NI', 'salzgitter': 'NI',
+  'hildesheim': 'NI', 'delmenhorst': 'NI', 'lüneburg': 'NI', 'luneburg': 'NI', 'wilhelmshaven': 'NI',
+  'celle': 'NI', 'garbsen': 'NI', 'lingen': 'NI', 'hameln': 'NI', 'langenhagen': 'NI', 'goslar': 'NI',
+  'cuxhaven': 'NI', 'emden': 'NI', 'nordhorn': 'NI',
+  // Nordrhein-Westfalen
+  'köln': 'NW', 'koln': 'NW', 'cologne': 'NW', 'düsseldorf': 'NW', 'dusseldorf': 'NW',
+  'dortmund': 'NW', 'essen': 'NW', 'duisburg': 'NW', 'bochum': 'NW', 'wuppertal': 'NW',
+  'bielefeld': 'NW', 'bonn': 'NW', 'münster': 'NW', 'munster': 'NW', 'gelsenkirchen': 'NW',
+  'mönchengladbach': 'NW', 'monchengladbach': 'NW', 'aachen': 'NW', 'krefeld': 'NW',
+  'oberhausen': 'NW', 'hagen': 'NW', 'hamm': 'NW', 'mülheim': 'NW', 'mulheim': 'NW',
+  'leverkusen': 'NW', 'solingen': 'NW', 'herne': 'NW', 'neuss': 'NW', 'paderborn': 'NW',
+  'bottrop': 'NW', 'recklinghausen': 'NW', 'remscheid': 'NW', 'bergisch gladbach': 'NW',
+  'siegen': 'NW', 'gütersloh': 'NW', 'witten': 'NW', 'iserlohn': 'NW', 'minden': 'NW',
+  'arnsberg': 'NW', 'detmold': 'NW', 'lüdenscheid': 'NW', 'troisdorf': 'NW', 'lippstadt': 'NW',
+  'dormagen': 'NW', 'bocholt': 'NW', 'kerpen': 'NW', 'velbert': 'NW', 'castrop-rauxel': 'NW',
+  // Rheinland-Pfalz
+  'mainz': 'RP', 'ludwigshafen': 'RP', 'koblenz': 'RP', 'trier': 'RP', 'kaiserslautern': 'RP',
+  'worms': 'RP', 'neuwied': 'RP', 'neustadt': 'RP', 'speyer': 'RP', 'frankenthal': 'RP',
+  'pirmasens': 'RP', 'bad kreuznach': 'RP', 'landau': 'RP', 'zweibrücken': 'RP',
+  // Saarland
+  'saarbrücken': 'SL', 'saarbrucken': 'SL', 'neunkirchen': 'SL', 'homburg': 'SL',
+  'völklingen': 'SL', 'volklingen': 'SL', 'st. ingbert': 'SL', 'saarlouis': 'SL',
+  // Sachsen
+  'dresden': 'SN', 'leipzig': 'SN', 'chemnitz': 'SN', 'zwickau': 'SN', 'plauen': 'SN',
+  'görlitz': 'SN', 'gorlitz': 'SN', 'freiberg': 'SN', 'bautzen': 'SN', 'pirna': 'SN',
+  'hoyerswerda': 'SN', 'radebeul': 'SN', 'meißen': 'SN', 'meissen': 'SN',
+  // Sachsen-Anhalt
+  'magdeburg': 'ST', 'halle': 'ST', 'dessau-roßlau': 'ST', 'lutherstadt wittenberg': 'ST',
+  'stendal': 'ST', 'halberstadt': 'ST', 'bernburg': 'ST', 'weißenfels': 'ST', 'merseburg': 'ST',
+  'naumburg': 'ST',
+  // Schleswig-Holstein
+  'kiel': 'SH', 'lübeck': 'SH', 'lubeck': 'SH', 'flensburg': 'SH', 'neumünster': 'SH',
+  'norderstedt': 'SH', 'elmshorn': 'SH', 'pinneberg': 'SH', 'itzehoe': 'SH', 'eckernförde': 'SH',
+  'rendsburg': 'SH', 'ahrensburg': 'SH', 'wedel': 'SH', 'henstedt-ulzburg': 'SH',
+  // Thüringen
+  'erfurt': 'TH', 'jena': 'TH', 'gera': 'TH', 'weimar': 'TH', 'gotha': 'TH', 'eisenach': 'TH',
+  'nordhausen': 'TH', 'suhl': 'TH', 'mühlhausen': 'TH', 'muhlhausen': 'TH', 'altenburg': 'TH'
+};
+
+function detectState(city, country) {
+  if (country !== 'DE' || !city) return '';
+  const c = city.toLowerCase().trim();
+  // Direkter Treffer
+  if (CITY_TO_STATE[c]) return CITY_TO_STATE[c];
+  // Versuche, den ersten Stadtteil vor Bindestrich/Komma/Klammer zu nehmen
+  const cleaned = c.split(/[,\(\/]/)[0].trim();
+  if (CITY_TO_STATE[cleaned]) return CITY_TO_STATE[cleaned];
+  // Versuche, ohne "am ..." / "bei ..." / "im ..." 
+  const baseCity = cleaned.replace(/\s+(am|an|bei|im|in|auf|ob)\s+.*/i, '').trim();
+  if (CITY_TO_STATE[baseCity]) return CITY_TO_STATE[baseCity];
+  return '';
+}
+
+// --- Bundesland-Erkennung ENDE ----------------------------------
+
+// --- Hilfsfunktionen --------------------------------------------
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function escapeHTML(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function isIncomplete(e) {
+  // API-Importe (Bundesagentur, Arbeitnow) liefern bewusst keine Tel/E-Mail,
+  // weil Bewerbungen über die Plattform laufen. Wenn alle API-verfügbaren
+  // Felder da sind, gilt der Eintrag als vollständig.
+  const isApiImport = e.source === 'Bundesagentur für Arbeit' || e.source === 'Arbeitnow';
+  if (isApiImport) {
+    // API-Eintrag gilt als vollständig, wenn Firma, Ort, Branche, Stelle und Datum da sind
+    return !e.companyName || !e.city || !e.industry || !e.jobTitle || !e.publicationDate;
+  }
+  // Manuell erfasste Einträge: hier Tel oder E-Mail erforderlich
+  return !(e.phone || e.email) || !e.industry || !e.publicationDate;
+}
+function daysAgo(dateStr) {
+  if (!dateStr) return 9999;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+function getPriority(e) {
+  // DE = hoch, AT/CH = mittel, sonst niedrig; zusätzlich Aktualität
+  const recent = daysAgo(e.publicationDate) <= 14;
+  if (e.country === 'DE' && recent) return 'high';
+  if (e.country === 'DE') return 'mid';
+  if ((e.country === 'AT' || e.country === 'CH') && recent) return 'mid';
+  return 'low';
+}
+
+// --- Duplikat-Erkennung -----------------------------------------
+function findDuplicates() {
+  const seen = new Map();
+  const duplicates = new Set();
+  entries.forEach(e => {
+    const key = (e.companyName || '').toLowerCase().trim() + '|' + (e.jobTitle || '').toLowerCase().trim();
+    if (seen.has(key)) {
+      duplicates.add(e.id);
+      duplicates.add(seen.get(key));
+    } else {
+      seen.set(key, e.id);
+    }
+  });
+  return duplicates;
+}
+
+// --- Rendering --------------------------------------------------
+function applyFilters(list) {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const country = document.getElementById('filterCountry').value;
+  const state = document.getElementById('filterState').value;
+  const industry = document.getElementById('filterIndustry').value;
+  const pType = document.getElementById('filterPositionType').value;
+  const range = document.getElementById('filterDateRange').value;
+  const status = document.getElementById('filterStatus').value;
+
+  return list.filter(e => {
+    if (q) {
+      const hay = `${e.companyName} ${e.city} ${e.jobTitle} ${e.industry} ${e.hrName}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (country && e.country !== country) return false;
+    if (state) {
+      const entryState = detectState(e.city, e.country);
+      if (entryState !== state) return false;
+    }
+    if (industry && e.industry !== industry) return false;
+    if (pType && e.positionType !== pType) return false;
+    if (range && daysAgo(e.publicationDate) > parseInt(range)) return false;
+    if (status === 'incomplete' && !isIncomplete(e)) return false;
+    if (status === 'complete' && isIncomplete(e)) return false;
+    return true;
+  });
+}
+
+function sortEntries(list) {
+  const sorted = [...list];
+  sorted.sort((a, b) => {
+    let av, bv;
+    if (sortField === 'location') { av = (a.city || '') + a.country; bv = (b.city || '') + b.country; }
+    else if (sortField === 'priority') {
+      const rank = { high: 0, mid: 1, low: 2 };
+      av = rank[getPriority(a)]; bv = rank[getPriority(b)];
+    }
+    else { av = a[sortField] || ''; bv = b[sortField] || ''; }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  // DE immer zuerst (nur wenn nicht bereits nach anderem Feld explizit sortiert wird)
+  if (sortField === 'publicationDate') {
+    sorted.sort((a, b) => {
+      const ca = a.country === 'DE' ? 0 : (a.country === 'AT' ? 1 : (a.country === 'CH' ? 2 : 3));
+      const cb = b.country === 'DE' ? 0 : (b.country === 'AT' ? 1 : (b.country === 'CH' ? 2 : 3));
+      if (ca !== cb) return ca - cb;
+      const da = new Date(a.publicationDate || 0).getTime();
+      const db = new Date(b.publicationDate || 0).getTime();
+      return sortDir === 'asc' ? da - db : db - da;
+    });
+  }
+  return sorted;
+}
+
+function render() {
+  const duplicates = findDuplicates();
+  const filtered = sortEntries(applyFilters(entries));
+  const tbody = document.getElementById('tableBody');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><h3>Keine Einträge gefunden</h3><p>Passe deine Filter an oder lege einen neuen Eintrag an.</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(e => {
+      const incomplete = isIncomplete(e);
+      const isDup = duplicates.has(e.id);
+      const prio = getPriority(e);
+      const isSelected = selectedIds.has(e.id);
+      const rowClass = [incomplete ? 'incomplete' : '', isDup ? 'duplicate' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+      const newBadge = daysAgo(e.publicationDate) <= 3 ? '<span class="badge badge-new">NEU</span> ' : '';
+      const ctype = { DE: 'de', AT: 'at', CH: 'ch' }[e.country] || '';
+      const ptype = { Fachkraft: 'fachkraft', Azubi: 'azubi', Sonstige: 'sonstige' }[e.positionType] || 'sonstige';
+      return `<tr class="${rowClass}" data-id="${escapeHTML(e.id)}">
+        <td class="col-select"><input type="checkbox" class="row-select" ${isSelected ? 'checked' : ''} onclick="toggleRowSelection(event, '${escapeHTML(e.id)}')"></td>
+        <td><span class="priority-dot priority-${prio}" title="Priorität: ${prio}"></span></td>
+        <td>
+          <div class="company-name">${newBadge}${escapeHTML(e.companyName)}</div>
+          ${e.jobTitle ? `<div class="muted">${escapeHTML(e.jobTitle)}</div>` : ''}
+          ${incomplete ? '<div class="muted empty-indicator">⚠ Unvollständig</div>' : ''}
+          ${isDup ? '<div class="muted empty-indicator">⚠ Mögliches Duplikat</div>' : ''}
+        </td>
+        <td>${escapeHTML(e.industry) || '<span class="empty-indicator">—</span>'}</td>
+        <td>${escapeHTML(e.city)} <span class="badge badge-${ctype}">${e.country}</span>${(() => { const st = detectState(e.city, e.country); return st ? `<div class="muted" style="font-size: 11px;">${STATE_NAMES[st]}</div>` : ''; })()}</td>
+        <td>
+          ${e.phone ? `<div>📞 <a href="tel:${escapeHTML(e.phone)}">${escapeHTML(e.phone)}</a></div>` : ''}
+          ${e.email ? `<div>✉️ <a href="mailto:${escapeHTML(e.email)}">${escapeHTML(e.email)}</a></div>` : ''}
+          ${!e.phone && !e.email ? '<span class="empty-indicator">—</span>' : ''}
+        </td>
+        <td>
+          ${e.hrName ? `<div><strong>${escapeHTML(e.hrName)}</strong></div>` : ''}
+          ${e.hrPosition ? `<div class="muted">${escapeHTML(e.hrPosition)}</div>` : ''}
+          ${e.hrPhone ? `<div class="muted">📞 ${escapeHTML(e.hrPhone)}</div>` : ''}
+          ${e.hrEmail ? `<div class="muted">✉️ ${escapeHTML(e.hrEmail)}</div>` : ''}
+          ${!e.hrName && !e.hrEmail && !e.hrPhone ? '<span class="muted">—</span>' : ''}
+        </td>
+        <td><span class="badge badge-${ptype}">${escapeHTML(e.positionType)}</span></td>
+        <td>${e.startDate ? formatDate(e.startDate) : '<span class="muted">—</span>'}</td>
+        <td>${formatDate(e.publicationDate)} <div class="muted">${daysAgoText(e.publicationDate)}</div></td>
+        <td>
+          ${e.sourceUrl ? `<a href="${escapeHTML(e.sourceUrl)}" target="_blank" rel="noopener">${escapeHTML(e.source)}</a>` : escapeHTML(e.source)}
+        </td>
+        <td>
+          <button class="ghost" onclick="editEntry('${e.id}')">✏️</button>
+          <button class="ghost" onclick="deleteEntry('${e.id}')">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  updateStats();
+  updateIndustryFilter();
+  updateSelectionUI();
+}
+
+function formatDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  return d.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+function daysAgoText(s) {
+  if (!s) return '';
+  const d = daysAgo(s);
+  if (d === 0) return 'heute';
+  if (d === 1) return 'gestern';
+  if (d < 30) return `vor ${d} Tagen`;
+  return `vor ${Math.floor(d/30)} Mon.`;
+}
+
+function updateStats() {
+  const total = entries.length;
+  const de = entries.filter(e => e.country === 'DE').length;
+  const at = entries.filter(e => e.country === 'AT').length;
+  const ch = entries.filter(e => e.country === 'CH').length;
+  const week = entries.filter(e => daysAgo(e.publicationDate) <= 7).length;
+  const incomplete = entries.filter(isIncomplete).length;
+  const azubi = entries.filter(e => e.positionType === 'Azubi').length;
+
+  // Top-3 Bundesländer ermitteln
+  const stateCount = {};
+  entries.forEach(e => {
+    if (e.country === 'DE') {
+      const st = detectState(e.city, e.country);
+      if (st) stateCount[st] = (stateCount[st] || 0) + 1;
+    }
+  });
+  const topStates = Object.entries(stateCount).sort((a,b) => b[1]-a[1]).slice(0, 3);
+  const topStatesText = topStates.length
+    ? topStates.map(([s, n]) => `${STATE_NAMES[s].split('-')[0].slice(0,8)}: ${n}`).join(' · ')
+    : '—';
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card accent"><div class="label">Einträge gesamt</div><div class="value">${total}</div></div>
+    <div class="stat-card success"><div class="label">Neu (7 Tage)</div><div class="value">${week}</div></div>
+    <div class="stat-card"><div class="label">🇩🇪 Deutschland</div><div class="value">${de}</div></div>
+    <div class="stat-card"><div class="label">Top-Bundesländer</div><div class="value" style="font-size: 12px; line-height: 1.6;">${topStatesText}</div></div>
+    <div class="stat-card"><div class="label">Ausbildung</div><div class="value">${azubi}</div></div>
+    <div class="stat-card warning"><div class="label">Unvollständig</div><div class="value">${incomplete}</div></div>
+  `;
+}
+
+function updateIndustryFilter() {
+  const sel = document.getElementById('filterIndustry');
+  const current = sel.value;
+  const industries = [...new Set(entries.map(e => e.industry).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Alle</option>' + industries.map(i => `<option value="${escapeHTML(i)}">${escapeHTML(i)}</option>`).join('');
+  sel.value = current;
+}
+
+// --- CRUD -------------------------------------------------------
+function openModal(entry) {
+  document.getElementById('modalTitle').textContent = entry ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
+  document.getElementById('entryForm').reset();
+  document.getElementById('entryId').value = entry ? entry.id : '';
+  if (entry) {
+    ['companyName','city','country','industry','phone','email','website','hrName','hrPosition','hrPhone','hrEmail','jobTitle','positionType','publicationDate','startDate','source','sourceUrl','notes']
+      .forEach(f => { if (document.getElementById(f)) document.getElementById(f).value = entry[f] || ''; });
+  } else {
+    document.getElementById('country').value = 'DE';
+    document.getElementById('positionType').value = 'Fachkraft';
+    document.getElementById('publicationDate').value = new Date().toISOString().slice(0, 10);
+  }
+  document.getElementById('modalBackdrop').classList.add('open');
+}
+function closeModal() { document.getElementById('modalBackdrop').classList.remove('open'); }
+
+async function saveEntry(ev) {
+  ev.preventDefault();
+  const id = document.getElementById('entryId').value;
+  const isNew = !id;
+  const data = {
+    id: id || genId(),
+    companyName: document.getElementById('companyName').value.trim(),
+    city: document.getElementById('city').value.trim(),
+    country: document.getElementById('country').value,
+    industry: document.getElementById('industry').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    website: document.getElementById('website').value.trim(),
+    hrName: document.getElementById('hrName').value.trim(),
+    hrPosition: document.getElementById('hrPosition').value.trim(),
+    hrPhone: document.getElementById('hrPhone').value.trim(),
+    hrEmail: document.getElementById('hrEmail').value.trim(),
+    jobTitle: document.getElementById('jobTitle').value.trim(),
+    positionType: document.getElementById('positionType').value,
+    publicationDate: document.getElementById('publicationDate').value,
+    startDate: document.getElementById('startDate').value,
+    source: document.getElementById('source').value.trim(),
+    sourceUrl: document.getElementById('sourceUrl').value.trim(),
+    notes: document.getElementById('notes').value.trim()
+  };
+  try {
+    await saveEntryToServer(data, isNew);
+    if (isNew) {
+      entries.push(data);
+    } else {
+      const idx = entries.findIndex(e => e.id === id);
+      if (idx >= 0) entries[idx] = data;
+    }
+    render();
+    closeModal();
+    toast(isNew ? 'Eintrag hinzugefügt ✓' : 'Eintrag aktualisiert ✓');
+  } catch (err) {
+    alert('Fehler beim Speichern: ' + err.message);
+  }
+}
+
+function editEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (e) openModal(e);
+}
+async function deleteEntry(id) {
+  if (!confirm('Diesen Eintrag wirklich löschen?')) return;
+  try {
+    await deleteEntryFromServer(id);
+    entries = entries.filter(e => e.id !== id);
+    render();
+    toast('Eintrag gelöscht ✓');
+  } catch (err) {
+    alert('Fehler beim Löschen: ' + err.message);
+  }
+}
+
+// --- Sortieren per Klick auf Spaltenüberschrift -----------------
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const field = th.dataset.sort;
+    if (sortField === field) sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+    else { sortField = field; sortDir = 'desc'; }
+    document.querySelectorAll('th').forEach(x => x.classList.remove('sorted', 'sorted-asc'));
+    th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted');
+    render();
+  });
+});
+
+// --- Filter-Events ----------------------------------------------
+['searchInput','filterCountry','filterState','filterIndustry','filterPositionType','filterDateRange','filterStatus']
+  .forEach(id => document.getElementById(id).addEventListener('input', render));
+
+// --- Import / Export --------------------------------------------
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `recruiter-crm_${new Date().toISOString().slice(0,10)}.json`);
+  toast('JSON exportiert');
+}
+
+function exportCSV() {
+  const cols = ['companyName','industry','city','country','phone','email','website','hrName','hrPosition','hrPhone','hrEmail','jobTitle','positionType','publicationDate','startDate','source','sourceUrl','notes'];
+  const header = cols.join(';');
+  const rows = entries.map(e => cols.map(c => {
+    const v = String(e[c] ?? '').replace(/"/g, '""');
+    return /[";\n]/.test(v) ? `"${v}"` : v;
+  }).join(';'));
+  const csv = '\uFEFF' + [header, ...rows].join('\n'); // BOM für Excel-kompatibles UTF-8
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `recruiter-crm_${new Date().toISOString().slice(0,10)}.csv`);
+  toast('CSV exportiert');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleImport(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      let imported = [];
+      if (file.name.endsWith('.json')) {
+        imported = JSON.parse(text);
+      } else {
+        imported = parseCSV(text);
+      }
+      if (!Array.isArray(imported)) throw new Error('Ungültiges Format');
+      const mode = confirm(`${imported.length} Einträge gefunden.\n\nOK = Hinzufügen (Duplikate werden markiert)\nAbbrechen = Ersetzen (alle bisherigen Daten löschen)`);
+      if (mode) {
+        imported.forEach(i => { if (!i.id) i.id = genId(); entries.push(i); });
+      } else {
+        entries = imported.map(i => ({ ...i, id: i.id || genId() }));
+      }
+      saveData();
+      render();
+      toast(`${imported.length} Einträge importiert`);
+    } catch (err) {
+      alert('Import fehlgeschlagen: ' + err.message);
+    }
+    ev.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const sep = lines[0].includes(';') ? ';' : ',';
+  const headers = splitCSVLine(lines[0], sep);
+  return lines.slice(1).map(line => {
+    const cells = splitCSVLine(line, sep);
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = cells[i] || '');
+    return obj;
+  });
+}
+function splitCSVLine(line, sep) {
+  const result = []; let cur = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"' && inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+    else if (c === '"') inQuotes = !inQuotes;
+    else if (c === sep && !inQuotes) { result.push(cur); cur = ''; }
+    else cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+// --- Auswahl & Excel-Export -------------------------------------
+const selectedIds = new Set();
+let lastSelectedIndex = -1;
+
+function toggleRowSelection(event, id) {
+  event.stopPropagation();
+  // Shift+Klick = Bereich auswählen
+  const filtered = sortEntries(applyFilters(entries));
+  const currentIndex = filtered.findIndex(e => e.id === id);
+
+  if (event.shiftKey && lastSelectedIndex >= 0 && currentIndex >= 0) {
+    const start = Math.min(lastSelectedIndex, currentIndex);
+    const end = Math.max(lastSelectedIndex, currentIndex);
+    const shouldSelect = event.target.checked;
+    for (let i = start; i <= end; i++) {
+      if (shouldSelect) selectedIds.add(filtered[i].id);
+      else selectedIds.delete(filtered[i].id);
+    }
+  } else {
+    if (event.target.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+  }
+  lastSelectedIndex = currentIndex;
+  updateSelectionUI();
+  render();
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById('selectAllCheckbox');
+  const filtered = sortEntries(applyFilters(entries));
+  if (cb.checked) {
+    filtered.forEach(e => selectedIds.add(e.id));
+  } else {
+    filtered.forEach(e => selectedIds.delete(e.id));
+  }
+  updateSelectionUI();
+  render();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  lastSelectedIndex = -1;
+  updateSelectionUI();
+  render();
+}
+
+function updateSelectionUI() {
+  const bar = document.getElementById('selectionBar');
+  const count = document.getElementById('selectionCount');
+  const cb = document.getElementById('selectAllCheckbox');
+  if (selectedIds.size > 0) {
+    bar.classList.add('active');
+    count.textContent = `${selectedIds.size} ${selectedIds.size === 1 ? 'Stelle' : 'Stellen'} ausgewählt`;
+  } else {
+    bar.classList.remove('active');
+  }
+  // "Alle markieren"-Checkbox-Status anpassen
+  if (cb) {
+    const filtered = sortEntries(applyFilters(entries));
+    const allSelected = filtered.length > 0 && filtered.every(e => selectedIds.has(e.id));
+    const someSelected = filtered.some(e => selectedIds.has(e.id));
+    cb.checked = allSelected;
+    cb.indeterminate = someSelected && !allSelected;
+  }
+}
+
+function exportSelectionToExcel() {
+  if (selectedIds.size === 0) {
+    alert('Bitte mindestens eine Stelle auswählen.');
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    alert('Excel-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.');
+    return;
+  }
+
+  const selected = entries.filter(e => selectedIds.has(e.id));
+
+  // Gruppieren nach Firma
+  const byCompany = {};
+  selected.forEach(e => {
+    const key = e.companyName || 'Unbekannt';
+    if (!byCompany[key]) byCompany[key] = [];
+    byCompany[key].push(e);
+  });
+
+  // Sortierung: Firmen alphabetisch, Stellen pro Firma nach Datum (neueste zuerst)
+  const sortedCompanies = Object.keys(byCompany).sort((a, b) => a.localeCompare(b, 'de'));
+  sortedCompanies.forEach(c => {
+    byCompany[c].sort((a, b) => (b.publicationDate || '').localeCompare(a.publicationDate || ''));
+  });
+
+  // === Reiter 1: Stellen (gruppiert nach Firma) ===
+  const sheetData1 = [
+    ['Unternehmen', 'Stelle', 'Ort', 'Bundesland', 'Veröffentlicht', 'Quelle', 'Quellen-Link', 'Notizen']
+  ];
+  sortedCompanies.forEach(company => {
+    const stellen = byCompany[company];
+    // Trennzeile mit Firmenname
+    sheetData1.push([`▶ ${company}  (${stellen.length} ${stellen.length === 1 ? 'Stelle' : 'Stellen'})`, '', '', '', '', '', '', '']);
+    stellen.forEach(e => {
+      const state = detectState(e.city, e.country);
+      sheetData1.push([
+        e.companyName || '',
+        e.jobTitle || '',
+        e.city || '',
+        state ? STATE_NAMES[state] : '',
+        e.publicationDate ? formatDate(e.publicationDate) : '',
+        e.source || '',
+        e.sourceUrl || '',
+        e.notes || ''
+      ]);
+    });
+    sheetData1.push(['', '', '', '', '', '', '', '']); // Leerzeile zwischen Firmen
+  });
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sheetData1);
+  // Spaltenbreite
+  ws1['!cols'] = [
+    { wch: 32 }, // Unternehmen
+    { wch: 40 }, // Stelle
+    { wch: 18 }, // Ort
+    { wch: 22 }, // Bundesland
+    { wch: 14 }, // Veröffentlicht
+    { wch: 20 }, // Quelle
+    { wch: 30 }, // Quellen-Link
+    { wch: 50 }  // Notizen
+  ];
+
+  // Filter aktivieren auf Datenbereich
+  if (sheetData1.length > 1) {
+    ws1['!autofilter'] = { ref: `A1:H${sheetData1.length}` };
+  }
+
+  // === Reiter 2: Firmen-Übersicht ===
+  const sheetData2 = [
+    ['Unternehmen', 'Anzahl Stellen', 'Branche(n)', 'Ort(e)', 'Älteste Veröff.', 'Neueste Veröff.', 'Stellentitel (kurz)']
+  ];
+  sortedCompanies.forEach(company => {
+    const stellen = byCompany[company];
+    const branches = [...new Set(stellen.map(s => s.industry).filter(Boolean))];
+    const orte = [...new Set(stellen.map(s => s.city).filter(Boolean))];
+    const dates = stellen.map(s => s.publicationDate).filter(Boolean).sort();
+    const titles = stellen.map(s => s.jobTitle).filter(Boolean).slice(0, 3);
+    sheetData2.push([
+      company,
+      stellen.length,
+      branches.join(', '),
+      orte.join(', '),
+      dates[0] ? formatDate(dates[0]) : '',
+      dates[dates.length - 1] ? formatDate(dates[dates.length - 1]) : '',
+      titles.join(' | ')
+    ]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(sheetData2);
+  ws2['!cols'] = [
+    { wch: 32 }, // Unternehmen
+    { wch: 14 }, // Anzahl Stellen
+    { wch: 30 }, // Branchen
+    { wch: 25 }, // Orte
+    { wch: 14 }, // Älteste
+    { wch: 14 }, // Neueste
+    { wch: 60 }  // Titel
+  ];
+  if (sheetData2.length > 1) {
+    ws2['!autofilter'] = { ref: `A1:G${sheetData2.length}` };
+  }
+
+  // === Workbook erstellen ===
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Stellen');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Firmen-Übersicht');
+
+  // Datei-Name: Datum + Anzahl Stellen
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `Stellenangebote_${dateStr}_${selected.length}Stellen.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+  toast(`✓ Excel exportiert: ${selected.length} Stellen, ${sortedCompanies.length} Firmen`);
+}
+
+// --- Toast ------------------------------------------------------
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// --- Alte Einträge bereinigen -----------------------------------
+// Entfernt nur die Einträge aus "Bundesagentur für Arbeit", bei denen
+// KEINE Referenznummer in den Notizen steht. Diese haben ungenaue
+// Links. Einträge mit Refnr (= präzise Links) bleiben erhalten.
+// Manuelle Einträge und Arbeitnow-Einträge bleiben unangetastet.
+function cleanOldEntries() {
+  const withoutRefNr = entries.filter(e =>
+    e.source === 'Bundesagentur für Arbeit' && !/RefNr:\s*[^\s.]+/.test(e.notes || '')
+  );
+  const count = withoutRefNr.length;
+  if (count === 0) {
+    toast('Keine alten Einträge gefunden – alles sauber ✓');
+    return;
+  }
+  const ok = confirm(
+    `Gefunden: ${count} Einträge aus "Bundesagentur für Arbeit" ohne präzise Referenznummer (ungenauer Link).\n\n` +
+    `Diese sollen gelöscht werden, damit du sie per "📡 Aus API laden" neu und mit präzisen Links importieren kannst.\n\n` +
+    `Deine anderen Einträge (manuelle Erfassung, neue Bundesagentur-Einträge mit Refnr, Arbeitnow-Einträge) bleiben erhalten.\n\n` +
+    `Wirklich ${count} Einträge löschen?`
+  );
+  if (!ok) return;
+  const idsToRemove = new Set(withoutRefNr.map(e => e.id));
+  entries = entries.filter(e => !idsToRemove.has(e.id));
+  saveData();
+  render();
+  toast(`${count} alte Einträge entfernt ✓ Jetzt frisch per API laden!`);
+}
+// Aktualisiert alle alten Arbeitsagentur-Links auf das neue Format.
+// Nutzt wenn möglich die Referenznummer (in den Notizen gespeichert)
+// für eine präzise Suche, sonst Firmenname + Stellentitel als Fallback.
+function repairLinks() {
+  let repaired = 0;
+  let withRefNr = 0;
+  entries.forEach(e => {
+    if (e.source === 'Bundesagentur für Arbeit') {
+      // Versuche, die Referenznummer aus den Notizen zu lesen
+      const match = (e.notes || '').match(/RefNr:\s*([^\s.]+)/);
+      let newUrl;
+      if (match && match[1]) {
+        // Suche über die Referenznummer – präziser Treffer
+        newUrl = `https://www.arbeitsagentur.de/jobsuche/suche?was=${encodeURIComponent(match[1])}`;
+        withRefNr++;
+      } else {
+        // Fallback: Suche über Firma + Stelle
+        newUrl = `https://www.arbeitsagentur.de/jobsuche/suche?was=${encodeURIComponent(e.jobTitle || '')}&unternehmen=${encodeURIComponent(e.companyName || '')}`;
+      }
+      if (e.sourceUrl !== newUrl) {
+        e.sourceUrl = newUrl;
+        repaired++;
+      }
+    }
+  });
+  if (repaired > 0) {
+    saveData();
+    render();
+    toast(`${repaired} Links repariert ✓ (${withRefNr} mit präziser Referenznummer)`);
+  } else {
+    toast('Alle Links sind bereits aktuell');
+  }
+}
+
+// --- API-Import (Arbeitnow) -------------------------------------
+let apiFetchedJobs = [];
+
+function openApiModal() {
+  document.getElementById('apiModalBackdrop').classList.add('open');
+  document.getElementById('apiResultsWrap').style.display = 'none';
+  document.getElementById('apiStatus').textContent = '';
+  updateApiSourceVisibility();
+}
+function closeApiModal() {
+  document.getElementById('apiModalBackdrop').classList.remove('open');
+}
+
+// Ein-/Ausblenden der Felder je nach gewählter Quelle
+function updateApiSourceVisibility() {
+  const src = document.getElementById('apiSource').value;
+  document.querySelectorAll('.arbeitsagentur-only').forEach(el => {
+    el.style.display = src === 'arbeitsagentur' ? '' : 'none';
+  });
+  document.querySelectorAll('.arbeitnow-only').forEach(el => {
+    el.style.display = src === 'arbeitnow' ? '' : 'none';
+  });
+}
+
+async function fetchApiJobs() {
+  const source = document.getElementById('apiSource').value;
+  if (source === 'arbeitsagentur') return fetchArbeitsagenturJobs();
+  return fetchArbeitsagenturJobs(); // Fallback
+}
+
+async function fetchArbeitsagenturJobs() {
+  const status = document.getElementById('apiStatus');
+  const btn = document.getElementById('apiFetchBtn');
+
+  if (!PROXY_URL) {
+    status.textContent = '⚠ PROXY_URL ist noch nicht eingetragen. Siehe Kommentar im JavaScript-Code.';
+    return;
+  }
+
+  const keyword = document.getElementById('apiKeyword').value.trim();
+  const location = document.getElementById('apiLocation').value.trim();
+  const radius = document.getElementById('apiRadius').value;
+  const jobType = document.getElementById('apiJobType').value;
+  const days = document.getElementById('apiDays').value;
+  const limit = parseInt(document.getElementById('apiLimit').value);
+
+  btn.disabled = true;
+  status.textContent = 'Lade Daten von der Bundesagentur für Arbeit...';
+  apiFetchedJobs = [];
+
+  try {
+    let collected = [];
+    let page = 1;
+    const pageSize = 100;
+    while (collected.length < limit && page <= 10) {
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(pageSize),
+        angebotsart: jobType,
+        pav: 'false',
+        veroeffentlichtseit: days
+      });
+      if (keyword) params.set('was', keyword);
+      if (location) { params.set('wo', location); params.set('umkreis', radius); }
+
+      const url = apiUrl('/jobs?' + params.toString());
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const stellen = data.stellenangebote || [];
+      if (stellen.length === 0) break;
+      collected = collected.concat(stellen);
+      status.textContent = `${collected.length} Stellen geladen...`;
+      if (stellen.length < pageSize) break;
+      page++;
+    }
+
+    // Mapping ins CRM-Format
+    apiFetchedJobs = collected.slice(0, limit).map(job => ({
+      _source: 'arbeitsagentur',
+      company_name: job.arbeitgeber || 'Unbekannt',
+      title: job.titel || job.beruf || '',
+      location: job.arbeitsort?.ort || '',
+      country: (job.arbeitsort?.land || '').includes('Österreich') ? 'AT'
+             : (job.arbeitsort?.land || '').includes('Schweiz') ? 'CH' : 'DE',
+      publicationDate: (job.aktuelleVeroeffentlichungsdatum || '').slice(0, 10),
+      startDate: (job.eintrittsdatum || '').slice(0, 10),
+      positionType: jobType === '4' ? 'Azubi' : (jobType === '34' ? 'Sonstige' : 'Fachkraft'),
+      industry: classifyIndustryArbeitsagentur(job),
+      refnr: job.refnr || '',
+      beruf: job.beruf || '',
+      tags: [job.beruf].filter(Boolean)
+    }));
+
+    renderApiResults();
+    status.textContent = `${apiFetchedJobs.length} Stellen gefunden`;
+  } catch (err) {
+    status.textContent = '❌ Fehler: ' + err.message + ' (Proxy erreichbar?)';
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function classifyIndustryArbeitsagentur(job) {
+  const text = `${job.titel || ''} ${job.beruf || ''}`.toLowerCase();
+  const map = [
+    [/entwickl|software|it |devops|cloud|python|java|frontend|backend|data/, 'IT & Software'],
+    [/maschinen|mechatronik|cnc|zerspan|werkzeug/, 'Maschinenbau'],
+    [/kfz|automobil|automotive|fahrzeug/, 'Automotive'],
+    [/pfleg|krankenschwester|altenpfleg|medizin|arzt|gesundheit|therapeut/, 'Gesundheitswesen / Pflege'],
+    [/logistik|lager|speditio|transport|fahrer/, 'Logistik & Transport'],
+    [/verkäufer|einzelhandel|filialleit|kasse/, 'Einzelhandel'],
+    [/bank|versicher|finanz|steuerfach|buchhalt/, 'Finanzen & Versicherungen'],
+    [/bau |maurer|zimmer|tiefbau|hochbau|dachdeck/, 'Bauwesen'],
+    [/chemie|pharma|labor|biotech/, 'Chemie & Pharma'],
+    [/elektro|elektriker|elektronik/, 'Elektrotechnik'],
+    [/koch|küche|restaurant|hotel|gastro|service/, 'Gastronomie & Hotellerie'],
+    [/tischler|schreiner|maler|friseur|metzger|bäcker|handwerk/, 'Handwerk'],
+    [/lehrer|erzieher|pädago|kita|schule/, 'Bildung'],
+    [/verwaltung|beamte|sachbearbeit/, 'Öffentlicher Dienst']
+  ];
+  for (const [re, name] of map) if (re.test(text)) return name;
+  return 'Sonstige';
+}
+
+// Einfache Länder-Heuristik basierend auf Ortsnamen
+const AT_CITIES = ['wien','vienna','graz','linz','salzburg','innsbruck','klagenfurt','villach','wels','dornbirn','austria','österreich','at'];
+const CH_CITIES = ['zürich','zurich','bern','basel','genf','geneva','lausanne','luzern','winterthur','switzerland','schweiz','suisse'];
+function detectCountry(loc) {
+  const l = loc.toLowerCase();
+  if (AT_CITIES.some(c => l.includes(c))) return 'AT';
+  if (CH_CITIES.some(c => l.includes(c))) return 'CH';
+  // Default: Deutschland (Arbeitnow fokussiert DE/EU, Remote oft aus DE)
+  return 'DE';
+}
+
+// Branchen-Heuristik aus Tags/Titel
+function guessIndustry(job) {
+  const text = `${job.title} ${(job.tags||[]).join(' ')}`.toLowerCase();
+  if (/develop|engineer|software|devops|frontend|backend|data|it |cloud|python|java|react/.test(text)) return 'IT & Software';
+  if (/market|seo|content|social media/.test(text)) return 'Medien & Marketing';
+  if (/sales|vertrieb|account/.test(text)) return 'Vertrieb';
+  if (/hr |recruit|people|talent/.test(text)) return 'HR & Personal';
+  if (/finance|financ|controll|buchhalt/.test(text)) return 'Finanzen & Versicherungen';
+  if (/design|ux|ui |product/.test(text)) return 'Medien & Marketing';
+  if (/pfleg|medizin|health|care|krankenhaus/.test(text)) return 'Gesundheitswesen / Pflege';
+  if (/logistik|transport|lager/.test(text)) return 'Logistik & Transport';
+  return 'Sonstige';
+}
+
+// Positionstyp-Heuristik
+function guessPositionType(job) {
+  const text = `${job.title} ${(job.job_types||[]).join(' ')}`.toLowerCase();
+  if (/azubi|ausbildung|lehre|trainee|praktik|intern|werkstud/.test(text)) return 'Azubi';
+  return 'Fachkraft';
+}
+
+function renderApiResults() {
+  const wrap = document.getElementById('apiResultsWrap');
+  const list = document.getElementById('apiResults');
+  document.getElementById('apiResultCount').textContent = `${apiFetchedJobs.length} Treffer:`;
+  if (apiFetchedJobs.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const existing = new Set(entries.map(e => (e.companyName + '|' + (e.jobTitle||'')).toLowerCase()));
+
+  list.innerHTML = apiFetchedJobs.map((j, i) => {
+    const key = (j.company_name + '|' + j.title).toLowerCase();
+    const isDup = existing.has(key);
+    const sourceLabel = j._source === 'arbeitsagentur' ? 'Arbeitsagentur' : 'Arbeitnow';
+    return `<label style="display: flex; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; ${isDup ? 'background: #fef2f2;' : ''}">
+      <input type="checkbox" class="api-check" data-idx="${i}" ${isDup ? '' : 'checked'}>
+      <div style="flex: 1;">
+        <div><strong>${escapeHTML(j.company_name)}</strong> · <span class="muted">${escapeHTML(j.location)}</span> <span class="badge badge-${j.country.toLowerCase()}">${j.country}</span>
+          ${isDup ? '<span class="badge badge-warn">bereits vorhanden</span>' : ''}
+        </div>
+        <div style="font-size: 13px;">${escapeHTML(j.title)}</div>
+        <div class="muted" style="font-size: 12px;">${escapeHTML(j.industry)} · ${escapeHTML(j.positionType)} · veröffentlicht ${j.publicationDate || '—'} · Quelle: ${sourceLabel}</div>
+      </div>
+    </label>`;
+  }).join('');
+}
+
+function toggleAllApiResults(check) {
+  document.querySelectorAll('.api-check').forEach(cb => cb.checked = check);
+}
+
+async function importSelectedApiJobs() {
+  const checks = [...document.querySelectorAll('.api-check:checked')];
+  if (checks.length === 0) { alert('Bitte mindestens einen Eintrag auswählen.'); return; }
+
+  const newEntries = checks.map(cb => {
+    const job = apiFetchedJobs[parseInt(cb.dataset.idx)];
+    let sourceUrl = job.url || '';
+    let sourceName = 'Arbeitnow';
+    if (job._source === 'arbeitsagentur') {
+      sourceName = 'Bundesagentur für Arbeit';
+      if (job.refnr) {
+        sourceUrl = `https://www.arbeitsagentur.de/jobsuche/suche?was=${encodeURIComponent(job.refnr)}`;
+      }
+    }
+    return {
+      id: genId(),
+      companyName: job.company_name || '',
+      city: (job.location || '').split(',')[0].trim(),
+      country: job.country,
+      industry: job.industry,
+      phone: '', email: '', website: '',
+      hrName: '', hrPosition: '', hrPhone: '', hrEmail: '',
+      jobTitle: job.title || '',
+      positionType: job.positionType,
+      publicationDate: job.publicationDate || new Date().toISOString().slice(0,10),
+      startDate: job.startDate || '',
+      source: sourceName,
+      sourceUrl: sourceUrl,
+      notes: `Automatisch importiert aus ${sourceName} am ${new Date().toLocaleDateString('de-DE')}.${job.refnr ? ' RefNr: ' + job.refnr + '.' : ''} ${job.tags && job.tags.length ? 'Tags: ' + job.tags.join(', ') : ''}`
+    };
+  });
+
+  try {
+    toast(`Importiere ${newEntries.length} Einträge...`);
+    // In Batches von 100 hochladen, falls der Server Limits hat
+    for (let i = 0; i < newEntries.length; i += 100) {
+      const batch = newEntries.slice(i, i + 100);
+      await bulkInsertToServer(batch);
+    }
+    await loadData(); // Frisch vom Server laden, damit alles synchron ist
+    closeApiModal();
+    toast(`${newEntries.length} Jobs importiert ✓`);
+  } catch (err) {
+    alert('Fehler beim Import: ' + err.message);
+  }
+}
+
+// Quellen-Auswahl-Event
+document.getElementById('apiSource').addEventListener('change', updateApiSourceVisibility);
+
+// Modal-Hintergrund-Klick
+document.getElementById('apiModalBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'apiModalBackdrop') closeApiModal();
+});
+
+// --- Modal-Schließen per Klick auf Hintergrund ------------------
+document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'modalBackdrop') closeModal();
+});
+
+// --- Start ------------------------------------------------------
+loadData();
+</script>
+
+</body>
+</html>
