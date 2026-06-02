@@ -1445,12 +1445,12 @@ function exportSelectionToExcel() {
 
   // === Reiter 1: Stellen (gruppiert nach Firma) ===
   const sheetData1 = [
-    ['Unternehmen', 'Stelle', 'Ort', 'Bundesland', 'Veröffentlicht', 'Quelle', 'Quellen-Link', 'Notizen']
+    ['Unternehmen', 'Stelle', 'Ort', 'Bundesland', 'Veröffentlicht', 'Persönliche Akquise', 'Telefon-Akquise', 'E-Mail', 'Notizen']
   ];
   sortedCompanies.forEach(company => {
     const stellen = byCompany[company];
     // Trennzeile mit Firmenname
-    sheetData1.push([`▶ ${company}  (${stellen.length} ${stellen.length === 1 ? 'Stelle' : 'Stellen'})`, '', '', '', '', '', '', '']);
+    sheetData1.push([`▶ ${company}  (${stellen.length} ${stellen.length === 1 ? 'Stelle' : 'Stellen'})`, '', '', '', '', '', '', '', '']);
     stellen.forEach(e => {
       const state = detectState(e.city, e.country);
       sheetData1.push([
@@ -1459,12 +1459,13 @@ function exportSelectionToExcel() {
         e.city || '',
         state ? STATE_NAMES[state] : '',
         e.publicationDate ? formatDate(e.publicationDate) : '',
-        e.source || '',
-        e.sourceUrl || '',
-        e.notes || ''
+        '', // Persönliche Akquise (leer zum manuellen Ausfüllen)
+        '', // Telefon-Akquise (leer zum manuellen Ausfüllen)
+        '', // E-Mail (leer zum manuellen Ausfüllen)
+        ''  // Notizen (leer zum manuellen Ausfüllen)
       ]);
     });
-    sheetData1.push(['', '', '', '', '', '', '', '']); // Leerzeile zwischen Firmen
+    sheetData1.push(['', '', '', '', '', '', '', '', '']); // Leerzeile zwischen Firmen
   });
 
   const ws1 = XLSX.utils.aoa_to_sheet(sheetData1);
@@ -1475,14 +1476,15 @@ function exportSelectionToExcel() {
     { wch: 18 }, // Ort
     { wch: 22 }, // Bundesland
     { wch: 14 }, // Veröffentlicht
-    { wch: 20 }, // Quelle
-    { wch: 30 }, // Quellen-Link
-    { wch: 50 }  // Notizen
+    { wch: 20 }, // Persönliche Akquise
+    { wch: 20 }, // Telefon-Akquise
+    { wch: 20 }, // E-Mail
+    { wch: 40 }  // Notizen
   ];
 
   // Filter aktivieren auf Datenbereich
   if (sheetData1.length > 1) {
-    ws1['!autofilter'] = { ref: `A1:H${sheetData1.length}` };
+    ws1['!autofilter'] = { ref: `A1:I${sheetData1.length}` };
   }
 
   // === Reiter 2: Firmen-Übersicht ===
