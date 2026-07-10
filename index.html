@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recruiter-CRM – DACH Unternehmens- & Vakanzmanagement</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   /* ============================================================
      RECRUITER CRM – Styles
@@ -284,52 +283,6 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
-  /* Auswahl-Leiste */
-  .selection-bar {
-    position: sticky;
-    top: 0;
-    background: var(--accent);
-    color: white;
-    padding: 12px 20px;
-    border-radius: var(--radius);
-    margin-bottom: 12px;
-    display: none;
-    align-items: center;
-    gap: 12px;
-    box-shadow: var(--shadow-lg);
-    z-index: 30;
-    animation: slideDown 0.2s ease-out;
-  }
-  .selection-bar.active { display: flex; }
-  .selection-bar .count { font-weight: 600; font-size: 15px; }
-  .selection-bar button {
-    background: white;
-    color: var(--accent);
-    border: none;
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 13px;
-  }
-  .selection-bar button:hover { background: rgba(255,255,255,0.9); }
-  .selection-bar button.ghost-white {
-    background: transparent;
-    color: white;
-    border: 1px solid rgba(255,255,255,0.4);
-  }
-  .selection-bar button.ghost-white:hover {
-    background: rgba(255,255,255,0.15);
-  }
-  .selection-bar .spacer { flex: 1; }
-  @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-  /* Checkbox-Spalte */
-  .col-select { width: 36px; padding: 6px 4px 6px 12px !important; }
-  .col-select input[type="checkbox"] { cursor: pointer; transform: scale(1.15); }
-  tbody tr.selected { background: #dbeafe !important; }
-  tbody tr.selected:hover { background: #bfdbfe !important; }
-
   .empty-state {
     padding: 60px 20px;
     text-align: center;
@@ -342,6 +295,86 @@
     .toolbar { flex-direction: column; align-items: stretch; }
     .toolbar input, .toolbar select { min-width: 0; width: 100%; }
   }
+  /* === Akquise-Tracker === */
+  .view-switch {
+    display: flex;
+    gap: 8px;
+    padding: 10px 24px 0 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  .view-switch button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 8px 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .view-switch button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .view-switch button:hover { color: var(--text); background: transparent; border-color: transparent; border-bottom-color: var(--border); }
+  .view-switch button.active:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .akq-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .akq-ueberfaellig   { background: #fee2e2; color: #991b1b; }
+  .akq-heute          { background: #ffedd5; color: #9a3412; }
+  .akq-bald           { background: #fef9c3; color: #854d0e; }
+  .akq-rhythmus       { background: #dcfce7; color: #166534; }
+  .akq-nicht          { background: #f3f4f6; color: #6b7280; }
+  .akq-fertig         { background: #d1fae5; color: #065f46; }
+  .akq-fertig-warn    { background: #e5e7eb; color: #374151; }
+
+  .akq-alert {
+    border-radius: var(--radius);
+    border: 1px solid;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .akq-alert h3 { margin: 0 0 6px 0; font-size: 14px; }
+  .akq-alert ul { margin: 0; padding-left: 18px; }
+  .akq-alert li { margin: 2px 0; }
+  .akq-alert.rot    { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+  .akq-alert.orange { background: #fff7ed; border-color: #fed7aa; color: #7c2d12; }
+  .akq-alert.gelb   { background: #fefce8; border-color: #fde68a; color: #713f12; }
+  .akq-alert.gruen  { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+
+  .akq-schritt {
+    display: inline-block;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 3px;
+  }
+  .akq-schritt.done { background: var(--success); color: white; }
+  .akq-schritt.open { background: var(--surface-2); color: var(--text-muted); border: 1px dashed var(--border); }
+
+  .akq-historie-zeile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    background: var(--surface-2);
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
@@ -351,7 +384,12 @@
   <div class="subtitle">Unternehmens- und Vakanzmanagement für Personalvermittler · Deutschland · Österreich · Schweiz</div>
 </header>
 
-<main>
+<nav class="view-switch">
+  <button id="tabCrm" class="active" onclick="switchView('crm')">📋 CRM</button>
+  <button id="tabAkquise" onclick="switchView('akquise')">📞 Akquise-Tracker <span id="akqAlarmBadge"></span></button>
+</nav>
+
+<main id="viewCrm">
 
   <!-- Rechtlicher Hinweis -->
   <div class="legal">
@@ -444,20 +482,11 @@
     <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImport(event)">
   </div>
 
-  <!-- Auswahl-Leiste (erscheint, wenn Einträge markiert sind) -->
-  <div class="selection-bar" id="selectionBar">
-    <span class="count" id="selectionCount">0 Stellen ausgewählt</span>
-    <div class="spacer"></div>
-    <button onclick="exportSelectionToExcel()">📥 Als Excel exportieren</button>
-    <button class="ghost-white" onclick="clearSelection()">Auswahl aufheben</button>
-  </div>
-
   <!-- Tabelle -->
   <div class="table-wrap">
     <table id="dataTable">
       <thead>
         <tr>
-          <th class="col-select"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()" title="Alle in dieser Ansicht markieren"></th>
           <th data-sort="priority">⚑</th>
           <th data-sort="companyName">Unternehmen</th>
           <th data-sort="industry">Branche</th>
@@ -476,6 +505,91 @@
   </div>
 
 </main>
+
+<!-- ============ Ansicht: Akquise-Tracker ============ -->
+<main id="viewAkquise" style="display:none">
+
+  <!-- Statistiken -->
+  <div class="stats" id="akqStats"></div>
+
+  <!-- Alarm-Listen (Überfällig / Heute / Bald) -->
+  <div id="akqAlerts"></div>
+
+  <!-- Filter -->
+  <div class="toolbar">
+    <div class="field">
+      <label>Suche</label>
+      <input type="search" id="akqSearch" placeholder="Firma, Ort..." oninput="renderAkquise()">
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="akqFilterStatus" onchange="renderAkquise()">
+        <option value="">Alle</option>
+        <option value="Überfällig">🔴 Überfällig</option>
+        <option value="Heute fällig">🟠 Heute fällig</option>
+        <option value="Bald fällig">🟡 Bald fällig</option>
+        <option value="Im Rhythmus">🟢 Im Rhythmus</option>
+        <option value="Nicht gestartet">⚪ Nicht gestartet</option>
+        <option value="abgeschlossen">✅ Abgeschlossen</option>
+      </select>
+    </div>
+    <div class="spacer"></div>
+    <span class="muted">Regel: max. 14 Tage zwischen den Schritten Persönlich · Telefonisch · E-Mail</span>
+  </div>
+
+  <!-- Tabelle -->
+  <div class="table-wrap">
+    <table id="akqTable">
+      <thead>
+        <tr>
+          <th>Unternehmen</th>
+          <th>Ort</th>
+          <th>Schritte</th>
+          <th>Status</th>
+          <th>Offen</th>
+          <th>Nächste Frist</th>
+          <th>Aktion</th>
+        </tr>
+      </thead>
+      <tbody id="akqTableBody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- Modal: Akquise-Kontakte eines Unternehmens -->
+<div class="modal-backdrop" id="akqModalBackdrop">
+  <div class="modal" style="max-width: 560px;">
+    <h2 id="akqModalTitle">Akquise</h2>
+    <div id="akqModalStatus" style="margin-bottom: 14px;"></div>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Kontaktart</label>
+        <select id="akqModalArt">
+          <option value="Persönlich">Persönlich</option>
+          <option value="Telefonisch">Telefonisch</option>
+          <option value="E-Mail">E-Mail</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Datum</label>
+        <input type="date" id="akqModalDatum">
+      </div>
+      <div class="form-field full">
+        <label>Notiz (optional)</label>
+        <input type="text" id="akqModalNotiz" placeholder="z. B. Gespräch mit Frau Müller, Rückruf zugesagt">
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top: 12px;">
+      <button type="button" onclick="closeAkqModal()">Schließen</button>
+      <button type="button" class="primary" onclick="saveAkquiseKontakt()">Kontakt speichern</button>
+    </div>
+
+    <h3 style="font-size: 14px; margin: 18px 0 8px 0;">Kontakt-Historie</h3>
+    <div id="akqModalHistorie"></div>
+  </div>
+</div>
 
 <!-- Modal für API-Import -->
 <div class="modal-backdrop" id="apiModalBackdrop">
@@ -734,9 +848,6 @@ async function loadData() {
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     entries = await res.json();
-    // Auswahl mit existierenden IDs abgleichen (gelöschte Einträge entfernen)
-    const validIds = new Set(entries.map(e => e.id));
-    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     render();
   } catch (e) {
     console.error('Fehler beim Laden', e);
@@ -793,6 +904,7 @@ async function bulkInsertToServer(arr) {
 setInterval(() => {
   if (APP_KEY && document.visibilityState === 'visible') {
     loadData();
+    loadAkquise();
   }
 }, 30000);
 
@@ -1070,19 +1182,17 @@ function render() {
   const tbody = document.getElementById('tableBody');
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><h3>Keine Einträge gefunden</h3><p>Passe deine Filter an oder lege einen neuen Eintrag an.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><h3>Keine Einträge gefunden</h3><p>Passe deine Filter an oder lege einen neuen Eintrag an.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(e => {
       const incomplete = isIncomplete(e);
       const isDup = duplicates.has(e.id);
       const prio = getPriority(e);
-      const isSelected = selectedIds.has(e.id);
-      const rowClass = [incomplete ? 'incomplete' : '', isDup ? 'duplicate' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+      const rowClass = [incomplete ? 'incomplete' : '', isDup ? 'duplicate' : ''].filter(Boolean).join(' ');
       const newBadge = daysAgo(e.publicationDate) <= 3 ? '<span class="badge badge-new">NEU</span> ' : '';
       const ctype = { DE: 'de', AT: 'at', CH: 'ch' }[e.country] || '';
       const ptype = { Fachkraft: 'fachkraft', Azubi: 'azubi', Sonstige: 'sonstige' }[e.positionType] || 'sonstige';
-      return `<tr class="${rowClass}" data-id="${escapeHTML(e.id)}">
-        <td class="col-select"><input type="checkbox" class="row-select" ${isSelected ? 'checked' : ''} onclick="toggleRowSelection(event, '${escapeHTML(e.id)}')"></td>
+      return `<tr class="${rowClass}">
         <td><span class="priority-dot priority-${prio}" title="Priorität: ${prio}"></span></td>
         <td>
           <div class="company-name">${newBadge}${escapeHTML(e.companyName)}</div>
@@ -1120,7 +1230,7 @@ function render() {
 
   updateStats();
   updateIndustryFilter();
-  updateSelectionUI();
+  if (typeof renderAkquise === 'function') renderAkquise();
 }
 
 function formatDate(s) {
@@ -1349,189 +1459,6 @@ function splitCSVLine(line, sep) {
   }
   result.push(cur);
   return result;
-}
-
-// --- Auswahl & Excel-Export -------------------------------------
-const selectedIds = new Set();
-let lastSelectedIndex = -1;
-
-function toggleRowSelection(event, id) {
-  event.stopPropagation();
-  // Shift+Klick = Bereich auswählen
-  const filtered = sortEntries(applyFilters(entries));
-  const currentIndex = filtered.findIndex(e => e.id === id);
-
-  if (event.shiftKey && lastSelectedIndex >= 0 && currentIndex >= 0) {
-    const start = Math.min(lastSelectedIndex, currentIndex);
-    const end = Math.max(lastSelectedIndex, currentIndex);
-    const shouldSelect = event.target.checked;
-    for (let i = start; i <= end; i++) {
-      if (shouldSelect) selectedIds.add(filtered[i].id);
-      else selectedIds.delete(filtered[i].id);
-    }
-  } else {
-    if (event.target.checked) selectedIds.add(id);
-    else selectedIds.delete(id);
-  }
-  lastSelectedIndex = currentIndex;
-  updateSelectionUI();
-  render();
-}
-
-function toggleSelectAll() {
-  const cb = document.getElementById('selectAllCheckbox');
-  const filtered = sortEntries(applyFilters(entries));
-  if (cb.checked) {
-    filtered.forEach(e => selectedIds.add(e.id));
-  } else {
-    filtered.forEach(e => selectedIds.delete(e.id));
-  }
-  updateSelectionUI();
-  render();
-}
-
-function clearSelection() {
-  selectedIds.clear();
-  lastSelectedIndex = -1;
-  updateSelectionUI();
-  render();
-}
-
-function updateSelectionUI() {
-  const bar = document.getElementById('selectionBar');
-  const count = document.getElementById('selectionCount');
-  const cb = document.getElementById('selectAllCheckbox');
-  if (selectedIds.size > 0) {
-    bar.classList.add('active');
-    count.textContent = `${selectedIds.size} ${selectedIds.size === 1 ? 'Stelle' : 'Stellen'} ausgewählt`;
-  } else {
-    bar.classList.remove('active');
-  }
-  // "Alle markieren"-Checkbox-Status anpassen
-  if (cb) {
-    const filtered = sortEntries(applyFilters(entries));
-    const allSelected = filtered.length > 0 && filtered.every(e => selectedIds.has(e.id));
-    const someSelected = filtered.some(e => selectedIds.has(e.id));
-    cb.checked = allSelected;
-    cb.indeterminate = someSelected && !allSelected;
-  }
-}
-
-function exportSelectionToExcel() {
-  if (selectedIds.size === 0) {
-    alert('Bitte mindestens eine Stelle auswählen.');
-    return;
-  }
-  if (typeof XLSX === 'undefined') {
-    alert('Excel-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.');
-    return;
-  }
-
-  const selected = entries.filter(e => selectedIds.has(e.id));
-
-  // Gruppieren nach Firma
-  const byCompany = {};
-  selected.forEach(e => {
-    const key = e.companyName || 'Unbekannt';
-    if (!byCompany[key]) byCompany[key] = [];
-    byCompany[key].push(e);
-  });
-
-  // Sortierung: Firmen alphabetisch, Stellen pro Firma nach Datum (neueste zuerst)
-  const sortedCompanies = Object.keys(byCompany).sort((a, b) => a.localeCompare(b, 'de'));
-  sortedCompanies.forEach(c => {
-    byCompany[c].sort((a, b) => (b.publicationDate || '').localeCompare(a.publicationDate || ''));
-  });
-
-  // === Reiter 1: Stellen (gruppiert nach Firma) ===
-  const sheetData1 = [
-    ['Unternehmen', 'Stelle', 'Ort', 'Bundesland', 'Veröffentlicht', 'Persönliche Akquise', 'Telefon-Akquise', 'E-Mail', 'Notizen']
-  ];
-  sortedCompanies.forEach(company => {
-    const stellen = byCompany[company];
-    // Trennzeile mit Firmenname
-    sheetData1.push([`▶ ${company}  (${stellen.length} ${stellen.length === 1 ? 'Stelle' : 'Stellen'})`, '', '', '', '', '', '', '', '']);
-    stellen.forEach(e => {
-      const state = detectState(e.city, e.country);
-      sheetData1.push([
-        e.companyName || '',
-        e.jobTitle || '',
-        e.city || '',
-        state ? STATE_NAMES[state] : '',
-        e.publicationDate ? formatDate(e.publicationDate) : '',
-        '', // Persönliche Akquise (leer zum manuellen Ausfüllen)
-        '', // Telefon-Akquise (leer zum manuellen Ausfüllen)
-        '', // E-Mail (leer zum manuellen Ausfüllen)
-        ''  // Notizen (leer zum manuellen Ausfüllen)
-      ]);
-    });
-    sheetData1.push(['', '', '', '', '', '', '', '', '']); // Leerzeile zwischen Firmen
-  });
-
-  const ws1 = XLSX.utils.aoa_to_sheet(sheetData1);
-  // Spaltenbreite
-  ws1['!cols'] = [
-    { wch: 32 }, // Unternehmen
-    { wch: 40 }, // Stelle
-    { wch: 18 }, // Ort
-    { wch: 22 }, // Bundesland
-    { wch: 14 }, // Veröffentlicht
-    { wch: 20 }, // Persönliche Akquise
-    { wch: 20 }, // Telefon-Akquise
-    { wch: 20 }, // E-Mail
-    { wch: 40 }  // Notizen
-  ];
-
-  // Filter aktivieren auf Datenbereich
-  if (sheetData1.length > 1) {
-    ws1['!autofilter'] = { ref: `A1:I${sheetData1.length}` };
-  }
-
-  // === Reiter 2: Firmen-Übersicht ===
-  const sheetData2 = [
-    ['Unternehmen', 'Anzahl Stellen', 'Branche(n)', 'Ort(e)', 'Älteste Veröff.', 'Neueste Veröff.', 'Stellentitel (kurz)']
-  ];
-  sortedCompanies.forEach(company => {
-    const stellen = byCompany[company];
-    const branches = [...new Set(stellen.map(s => s.industry).filter(Boolean))];
-    const orte = [...new Set(stellen.map(s => s.city).filter(Boolean))];
-    const dates = stellen.map(s => s.publicationDate).filter(Boolean).sort();
-    const titles = stellen.map(s => s.jobTitle).filter(Boolean).slice(0, 3);
-    sheetData2.push([
-      company,
-      stellen.length,
-      branches.join(', '),
-      orte.join(', '),
-      dates[0] ? formatDate(dates[0]) : '',
-      dates[dates.length - 1] ? formatDate(dates[dates.length - 1]) : '',
-      titles.join(' | ')
-    ]);
-  });
-  const ws2 = XLSX.utils.aoa_to_sheet(sheetData2);
-  ws2['!cols'] = [
-    { wch: 32 }, // Unternehmen
-    { wch: 14 }, // Anzahl Stellen
-    { wch: 30 }, // Branchen
-    { wch: 25 }, // Orte
-    { wch: 14 }, // Älteste
-    { wch: 14 }, // Neueste
-    { wch: 60 }  // Titel
-  ];
-  if (sheetData2.length > 1) {
-    ws2['!autofilter'] = { ref: `A1:G${sheetData2.length}` };
-  }
-
-  // === Workbook erstellen ===
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'Stellen');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Firmen-Übersicht');
-
-  // Datei-Name: Datum + Anzahl Stellen
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const filename = `Stellenangebote_${dateStr}_${selected.length}Stellen.xlsx`;
-
-  XLSX.writeFile(wb, filename);
-  toast(`✓ Excel exportiert: ${selected.length} Stellen, ${sortedCompanies.length} Firmen`);
 }
 
 // --- Toast ------------------------------------------------------
@@ -1854,8 +1781,306 @@ document.getElementById('modalBackdrop').addEventListener('click', (e) => {
   if (e.target.id === 'modalBackdrop') closeModal();
 });
 
+/* ================================================================
+   AKQUISE-TRACKER
+   3-Schritte-Rhythmus: Persönlich · Telefonisch · E-Mail
+   Regel: max. 14 Tage zwischen den Schritten.
+   Abgeschlossen = alle drei Arten erledigt und Abstände eingehalten.
+   ================================================================ */
+
+const AKQUISE_ARTEN = ['Persönlich', 'Telefonisch', 'E-Mail'];
+const AKQ_MAX_TAGE = 14;
+const AKQ_WARN_TAGE = 3;
+
+const AKQ_STATUS_CFG = {
+  'Überfällig':      { emoji: '🔴', cls: 'akq-ueberfaellig', rang: 0 },
+  'Heute fällig':    { emoji: '🟠', cls: 'akq-heute',        rang: 1 },
+  'Bald fällig':     { emoji: '🟡', cls: 'akq-bald',         rang: 2 },
+  'Im Rhythmus':     { emoji: '🟢', cls: 'akq-rhythmus',     rang: 3 },
+  'Nicht gestartet': { emoji: '⚪', cls: 'akq-nicht',         rang: 4 },
+  'Abgeschlossen':   { emoji: '✅', cls: 'akq-fertig',        rang: 5 },
+  'Abgeschlossen (Frist überschritten)': { emoji: '☑️', cls: 'akq-fertig-warn', rang: 6 }
+};
+
+let akquiseKontakte = [];
+let akqAktuelleEntryId = null;
+
+// --- Ansichten-Umschaltung ---------------------------------------
+function switchView(view) {
+  document.getElementById('viewCrm').style.display = view === 'crm' ? '' : 'none';
+  document.getElementById('viewAkquise').style.display = view === 'akquise' ? '' : 'none';
+  document.getElementById('tabCrm').classList.toggle('active', view === 'crm');
+  document.getElementById('tabAkquise').classList.toggle('active', view === 'akquise');
+  if (view === 'akquise') renderAkquise();
+}
+
+// --- Datums-Helfer (lokale Zeitzone, ISO-Strings) ----------------
+function akqHeute() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function akqDiffTage(vonIso, bisIso) {
+  return Math.round((new Date(bisIso) - new Date(vonIso)) / 86400000);
+}
+function akqAddTage(iso, n) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function akqDatumDE(iso) {
+  if (!iso) return '–';
+  const [j, m, t] = iso.slice(0, 10).split('-');
+  return `${t}.${m}.${j}`;
+}
+
+// --- Laden / Speichern -------------------------------------------
+async function loadAkquise() {
+  if (!APP_KEY) return;
+  try {
+    const res = await fetch(apiUrl('/api/akquise'));
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    akquiseKontakte = await res.json();
+    renderAkquise();
+  } catch (e) {
+    console.error('Fehler beim Laden der Akquise-Daten', e);
+    toast('⚠ Akquise-Daten konnten nicht geladen werden: ' + e.message);
+  }
+}
+
+// --- Kernlogik: Bewertung eines Unternehmens ---------------------
+function bewerteAkquise(entryId) {
+  const kontakte = akquiseKontakte
+    .filter(k => k.entry_id === entryId)
+    .slice()
+    .sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+
+  // Erster Kontakt je Art zählt für den Rhythmus
+  const erste = {};
+  kontakte.forEach(k => { if (!(k.art in erste)) erste[k.art] = String(k.datum).slice(0, 10); });
+
+  const erledigt = AKQUISE_ARTEN.filter(a => a in erste);
+  const offen = AKQUISE_ARTEN.filter(a => !(a in erste));
+
+  if (erledigt.length === 0) {
+    return { erledigt, offen, fortschritt: '0/3', status: 'Nicht gestartet', frist: null, tage: null, verletzt: false, erste };
+  }
+
+  const daten = Object.values(erste).sort();
+  let verletzt = false;
+  for (let i = 1; i < daten.length; i++) {
+    if (akqDiffTage(daten[i - 1], daten[i]) > AKQ_MAX_TAGE) verletzt = true;
+  }
+
+  if (offen.length === 0) {
+    const status = verletzt ? 'Abgeschlossen (Frist überschritten)' : 'Abgeschlossen';
+    return { erledigt, offen, fortschritt: '3/3', status, frist: null, tage: null, verletzt, erste };
+  }
+
+  const letzter = daten[daten.length - 1];
+  const frist = akqAddTage(letzter, AKQ_MAX_TAGE);
+  const tage = akqDiffTage(akqHeute(), frist);
+
+  let status;
+  if (tage < 0) status = 'Überfällig';
+  else if (tage === 0) status = 'Heute fällig';
+  else if (tage <= AKQ_WARN_TAGE) status = 'Bald fällig';
+  else status = 'Im Rhythmus';
+
+  return { erledigt, offen, fortschritt: erledigt.length + '/3', status, frist, tage, verletzt, erste };
+}
+
+// --- Rendering ----------------------------------------------------
+function akqSchritteHTML(info) {
+  return AKQUISE_ARTEN.map(art => {
+    const done = info.erledigt.includes(art);
+    const kuerzel = art === 'Persönlich' ? 'P' : (art === 'Telefonisch' ? 'T' : '@');
+    const titel = done ? `${art}: ${akqDatumDE(info.erste[art])}` : `${art}: noch offen`;
+    return `<span class="akq-schritt ${done ? 'done' : 'open'}" title="${escapeHTML(titel)}">${kuerzel}</span>`;
+  }).join('');
+}
+
+function renderAkquise() {
+  const tbody = document.getElementById('akqTableBody');
+  if (!tbody) return;
+
+  const bewertet = entries.map(e => ({ e, info: bewerteAkquise(e.id) }));
+
+  // Alarm-Badge im Tab (Überfällig + Heute fällig)
+  const alarmzahl = bewertet.filter(x => x.info.status === 'Überfällig' || x.info.status === 'Heute fällig').length;
+  const badge = document.getElementById('akqAlarmBadge');
+  if (badge) {
+    badge.innerHTML = alarmzahl > 0
+      ? `<span class="badge" style="background: var(--danger); color: white; margin-left: 4px;">${alarmzahl}</span>`
+      : '';
+  }
+
+  // Kennzahlen
+  const zaehle = (s) => bewertet.filter(x => x.info.status === s).length;
+  const nAbgeschlossen = bewertet.filter(x => x.info.status.startsWith('Abgeschlossen')).length;
+  const stats = document.getElementById('akqStats');
+  stats.innerHTML = `
+    <div class="stat-card"><div class="label">Unternehmen gesamt</div><div class="value">${bewertet.length}</div></div>
+    <div class="stat-card" style="border-left: 3px solid var(--danger);"><div class="label">🔴 Überfällig</div><div class="value">${zaehle('Überfällig')}</div></div>
+    <div class="stat-card warning"><div class="label">🟠 Heute fällig</div><div class="value">${zaehle('Heute fällig')}</div></div>
+    <div class="stat-card accent"><div class="label">🟡 Bald fällig</div><div class="value">${zaehle('Bald fällig')}</div></div>
+    <div class="stat-card success"><div class="label">✅ Abgeschlossen</div><div class="value">${nAbgeschlossen}</div></div>`;
+
+  // Alarm-Listen
+  const alerts = document.getElementById('akqAlerts');
+  const listeHTML = (items) => '<ul>' + items.slice(0, 15).map(x =>
+    `<li><strong>${escapeHTML(x.e.companyName)}</strong> – offen: ${x.info.offen.join(', ')}` +
+    (x.info.frist ? ` – Frist: ${akqDatumDE(x.info.frist)}` : '') +
+    (x.info.tage !== null && x.info.tage < 0 ? ` <strong>(${Math.abs(x.info.tage)} Tage überfällig)</strong>` : '') +
+    `</li>`).join('') +
+    (items.length > 15 ? `<li>… und ${items.length - 15} weitere</li>` : '') + '</ul>';
+
+  const ueberfaellig = bewertet.filter(x => x.info.status === 'Überfällig');
+  const heuteFaellig = bewertet.filter(x => x.info.status === 'Heute fällig');
+  const baldFaellig = bewertet.filter(x => x.info.status === 'Bald fällig');
+
+  let alertsHTML = '';
+  if (ueberfaellig.length) alertsHTML += `<div class="akq-alert rot"><h3>🔴 Überfällig (${ueberfaellig.length}) – 2-Wochen-Fenster überschritten</h3>${listeHTML(ueberfaellig)}</div>`;
+  if (heuteFaellig.length) alertsHTML += `<div class="akq-alert orange"><h3>🟠 Heute fällig (${heuteFaellig.length})</h3>${listeHTML(heuteFaellig)}</div>`;
+  if (baldFaellig.length) alertsHTML += `<div class="akq-alert gelb"><h3>🟡 Fällig in den nächsten ${AKQ_WARN_TAGE} Tagen (${baldFaellig.length})</h3>${listeHTML(baldFaellig)}</div>`;
+  if (!alertsHTML && bewertet.length) alertsHTML = `<div class="akq-alert gruen"><h3>✅ Keine dringenden Aufgaben – alle Unternehmen im Rhythmus.</h3></div>`;
+  alerts.innerHTML = alertsHTML;
+
+  // Filter + Sortierung (dringendste zuerst)
+  const q = (document.getElementById('akqSearch').value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('akqFilterStatus').value;
+
+  let liste = bewertet.filter(x => {
+    if (q && !(`${x.e.companyName} ${x.e.city}`.toLowerCase().includes(q))) return false;
+    if (statusFilter === 'abgeschlossen') return x.info.status.startsWith('Abgeschlossen');
+    if (statusFilter && x.info.status !== statusFilter) return false;
+    return true;
+  });
+
+  liste.sort((a, b) => {
+    const ra = AKQ_STATUS_CFG[a.info.status].rang, rb = AKQ_STATUS_CFG[b.info.status].rang;
+    if (ra !== rb) return ra - rb;
+    if (a.info.frist && b.info.frist && a.info.frist !== b.info.frist) return a.info.frist < b.info.frist ? -1 : 1;
+    return (a.e.companyName || '').localeCompare(b.e.companyName || '');
+  });
+
+  // Tabelle
+  if (!liste.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center; padding: 24px;">Keine Unternehmen gefunden. Einträge werden im CRM-Tab angelegt oder importiert.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = liste.map(x => {
+    const cfg = AKQ_STATUS_CFG[x.info.status];
+    let fristText = '–';
+    if (x.info.frist) {
+      fristText = akqDatumDE(x.info.frist);
+      if (x.info.tage < 0) fristText += ` <span class="empty-indicator">(${Math.abs(x.info.tage)} T. überfällig)</span>`;
+      else if (x.info.tage === 0) fristText += ' (heute)';
+      else fristText += ` <span class="muted">(in ${x.info.tage} T.)</span>`;
+    }
+    const warnung = x.info.verletzt ? ' <span title="2-Wochen-Fenster wurde mindestens einmal überschritten">⚠️</span>' : '';
+    return `<tr>
+      <td><span class="company-name">${escapeHTML(x.e.companyName)}</span>${warnung}</td>
+      <td>${escapeHTML(x.e.city || '')}</td>
+      <td>${akqSchritteHTML(x.info)} <span class="muted">${x.info.fortschritt}</span></td>
+      <td><span class="akq-badge ${cfg.cls}">${cfg.emoji} ${x.info.status}</span></td>
+      <td class="muted">${x.info.offen.join(', ') || '–'}</td>
+      <td>${fristText}</td>
+      <td><button class="ghost" onclick="openAkqModal('${escapeHTML(x.e.id)}')" title="Kontakte ansehen und erfassen">📞 Kontakte</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// --- Modal: Kontakte eines Unternehmens ---------------------------
+function openAkqModal(entryId) {
+  akqAktuelleEntryId = entryId;
+  const e = entries.find(x => x.id === entryId);
+  if (!e) return;
+  document.getElementById('akqModalTitle').textContent = '📞 ' + (e.companyName || 'Unternehmen');
+  document.getElementById('akqModalDatum').value = akqHeute();
+  document.getElementById('akqModalNotiz').value = '';
+  refreshAkqModal();
+  document.getElementById('akqModalBackdrop').classList.add('open');
+}
+
+function refreshAkqModal() {
+  const info = bewerteAkquise(akqAktuelleEntryId);
+  const cfg = AKQ_STATUS_CFG[info.status];
+  let statusHTML = `${akqSchritteHTML(info)} <span class="akq-badge ${cfg.cls}">${cfg.emoji} ${info.status}</span>`;
+  if (info.frist) statusHTML += ` <span class="muted">Nächste Frist: ${akqDatumDE(info.frist)}</span>`;
+  if (info.verletzt) statusHTML += `<div class="muted" style="margin-top: 6px;">⚠️ Das 2-Wochen-Fenster wurde mindestens einmal überschritten.</div>`;
+  document.getElementById('akqModalStatus').innerHTML = statusHTML;
+
+  // Nächsten offenen Schritt vorauswählen
+  if (info.offen.length) document.getElementById('akqModalArt').value = info.offen[0];
+
+  // Historie
+  const kontakte = akquiseKontakte
+    .filter(k => k.entry_id === akqAktuelleEntryId)
+    .slice()
+    .sort((a, b) => String(b.datum).localeCompare(String(a.datum)));
+  const hist = document.getElementById('akqModalHistorie');
+  hist.innerHTML = kontakte.length
+    ? kontakte.map(k => `
+        <div class="akq-historie-zeile">
+          <span><strong>${akqDatumDE(String(k.datum))}</strong> · ${escapeHTML(k.art)}${k.notiz ? ` · <span class="muted">${escapeHTML(k.notiz)}</span>` : ''}</span>
+          <button class="ghost" onclick="deleteAkquiseKontakt('${escapeHTML(k.id)}')" title="Kontakt löschen">🗑️</button>
+        </div>`).join('')
+    : '<div class="muted">Noch keine Kontakte erfasst.</div>';
+}
+
+function closeAkqModal() {
+  document.getElementById('akqModalBackdrop').classList.remove('open');
+  akqAktuelleEntryId = null;
+}
+
+async function saveAkquiseKontakt() {
+  if (!akqAktuelleEntryId) return;
+  const art = document.getElementById('akqModalArt').value;
+  const datum = document.getElementById('akqModalDatum').value;
+  const notiz = document.getElementById('akqModalNotiz').value.trim();
+  if (!datum) { toast('⚠ Bitte ein Datum angeben'); return; }
+
+  const kontakt = { id: genId(), entry_id: akqAktuelleEntryId, art, datum, notiz };
+  try {
+    const res = await fetch(apiUrl('/api/akquise'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(kontakt)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    akquiseKontakte.push(kontakt);
+    document.getElementById('akqModalNotiz').value = '';
+    toast(`${art}er Kontakt gespeichert ✓`);
+    refreshAkqModal();
+    renderAkquise();
+  } catch (e) {
+    toast('⚠ Speichern fehlgeschlagen: ' + e.message);
+  }
+}
+
+async function deleteAkquiseKontakt(id) {
+  if (!confirm('Diesen Kontakt wirklich löschen?')) return;
+  try {
+    const res = await fetch(apiUrl('/api/akquise/' + encodeURIComponent(id)), { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    akquiseKontakte = akquiseKontakte.filter(k => k.id !== id);
+    toast('Kontakt gelöscht ✓');
+    refreshAkqModal();
+    renderAkquise();
+  } catch (e) {
+    toast('⚠ Löschen fehlgeschlagen: ' + e.message);
+  }
+}
+
+// Modal-Hintergrund-Klick schließt das Akquise-Modal
+document.getElementById('akqModalBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'akqModalBackdrop') closeAkqModal();
+});
+
 // --- Start ------------------------------------------------------
 loadData();
+loadAkquise();
 </script>
 
 </body>
