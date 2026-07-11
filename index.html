@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recruiter-CRM – DACH Unternehmens- & Vakanzmanagement</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   /* ============================================================
      RECRUITER CRM – Styles
@@ -283,6 +284,52 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
+  /* Auswahl-Leiste */
+  .selection-bar {
+    position: sticky;
+    top: 0;
+    background: var(--accent);
+    color: white;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+    animation: slideDown 0.2s ease-out;
+  }
+  .selection-bar.active { display: flex; }
+  .selection-bar .count { font-weight: 600; font-size: 15px; }
+  .selection-bar button {
+    background: white;
+    color: var(--accent);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .selection-bar button:hover { background: rgba(255,255,255,0.9); }
+  .selection-bar button.ghost-white {
+    background: transparent;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .selection-bar button.ghost-white:hover {
+    background: rgba(255,255,255,0.15);
+  }
+  .selection-bar .spacer { flex: 1; }
+  @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Checkbox-Spalte */
+  .col-select { width: 36px; padding: 6px 4px 6px 12px !important; }
+  .col-select input[type="checkbox"] { cursor: pointer; transform: scale(1.15); }
+  tbody tr.selected { background: #dbeafe !important; }
+  tbody tr.selected:hover { background: #bfdbfe !important; }
+
   .empty-state {
     padding: 60px 20px;
     text-align: center;
@@ -482,11 +529,20 @@
     <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImport(event)">
   </div>
 
+  <!-- Auswahl-Leiste (erscheint, wenn Einträge markiert sind) -->
+  <div class="selection-bar" id="selectionBar">
+    <span class="count" id="selectionCount">0 Stellen ausgewählt</span>
+    <div class="spacer"></div>
+    <button onclick="exportSelectionToExcel()">📥 Als Excel exportieren</button>
+    <button class="ghost-white" onclick="clearSelection()">Auswahl aufheben</button>
+  </div>
+
   <!-- Tabelle -->
   <div class="table-wrap">
     <table id="dataTable">
       <thead>
         <tr>
+          <th class="col-select"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()" title="Alle in dieser Ansicht markieren"></th>
           <th data-sort="priority">⚑</th>
           <th data-sort="companyName">Unternehmen</th>
           <th data-sort="industry">Branche</th>
@@ -848,6 +904,9 @@ async function loadData() {
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     entries = await res.json();
+    // Auswahl mit existierenden IDs abgleichen (gelöschte Einträge entfernen)
+    const validIds = new Set(entries.map(e => e.id));
+    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     render();
   } catch (e) {
     console.error('Fehler beim Laden', e);
@@ -1182,17 +1241,19 @@ function render() {
   const tbody = document.getElementById('tableBody');
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><h3>Keine Einträge gefunden</h3><p>Passe deine Filter an oder lege einen neuen Eintrag an.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><h3>Keine Einträge gefunden</h3><p>Passe deine Filter an oder lege einen neuen Eintrag an.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(e => {
       const incomplete = isIncomplete(e);
       const isDup = duplicates.has(e.id);
       const prio = getPriority(e);
-      const rowClass = [incomplete ? 'incomplete' : '', isDup ? 'duplicate' : ''].filter(Boolean).join(' ');
+      const isSelected = selectedIds.has(e.id);
+      const rowClass = [incomplete ? 'incomplete' : '', isDup ? 'duplicate' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
       const newBadge = daysAgo(e.publicationDate) <= 3 ? '<span class="badge badge-new">NEU</span> ' : '';
       const ctype = { DE: 'de', AT: 'at', CH: 'ch' }[e.country] || '';
       const ptype = { Fachkraft: 'fachkraft', Azubi: 'azubi', Sonstige: 'sonstige' }[e.positionType] || 'sonstige';
-      return `<tr class="${rowClass}">
+      return `<tr class="${rowClass}" data-id="${escapeHTML(e.id)}">
+        <td class="col-select"><input type="checkbox" class="row-select" ${isSelected ? 'checked' : ''} onclick="toggleRowSelection(event, '${escapeHTML(e.id)}')"></td>
         <td><span class="priority-dot priority-${prio}" title="Priorität: ${prio}"></span></td>
         <td>
           <div class="company-name">${newBadge}${escapeHTML(e.companyName)}</div>
@@ -1230,6 +1291,7 @@ function render() {
 
   updateStats();
   updateIndustryFilter();
+  updateSelectionUI();
   if (typeof renderAkquise === 'function') renderAkquise();
 }
 
@@ -1459,6 +1521,189 @@ function splitCSVLine(line, sep) {
   }
   result.push(cur);
   return result;
+}
+
+// --- Auswahl & Excel-Export -------------------------------------
+const selectedIds = new Set();
+let lastSelectedIndex = -1;
+
+function toggleRowSelection(event, id) {
+  event.stopPropagation();
+  // Shift+Klick = Bereich auswählen
+  const filtered = sortEntries(applyFilters(entries));
+  const currentIndex = filtered.findIndex(e => e.id === id);
+
+  if (event.shiftKey && lastSelectedIndex >= 0 && currentIndex >= 0) {
+    const start = Math.min(lastSelectedIndex, currentIndex);
+    const end = Math.max(lastSelectedIndex, currentIndex);
+    const shouldSelect = event.target.checked;
+    for (let i = start; i <= end; i++) {
+      if (shouldSelect) selectedIds.add(filtered[i].id);
+      else selectedIds.delete(filtered[i].id);
+    }
+  } else {
+    if (event.target.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+  }
+  lastSelectedIndex = currentIndex;
+  updateSelectionUI();
+  render();
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById('selectAllCheckbox');
+  const filtered = sortEntries(applyFilters(entries));
+  if (cb.checked) {
+    filtered.forEach(e => selectedIds.add(e.id));
+  } else {
+    filtered.forEach(e => selectedIds.delete(e.id));
+  }
+  updateSelectionUI();
+  render();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  lastSelectedIndex = -1;
+  updateSelectionUI();
+  render();
+}
+
+function updateSelectionUI() {
+  const bar = document.getElementById('selectionBar');
+  const count = document.getElementById('selectionCount');
+  const cb = document.getElementById('selectAllCheckbox');
+  if (selectedIds.size > 0) {
+    bar.classList.add('active');
+    count.textContent = `${selectedIds.size} ${selectedIds.size === 1 ? 'Stelle' : 'Stellen'} ausgewählt`;
+  } else {
+    bar.classList.remove('active');
+  }
+  // "Alle markieren"-Checkbox-Status anpassen
+  if (cb) {
+    const filtered = sortEntries(applyFilters(entries));
+    const allSelected = filtered.length > 0 && filtered.every(e => selectedIds.has(e.id));
+    const someSelected = filtered.some(e => selectedIds.has(e.id));
+    cb.checked = allSelected;
+    cb.indeterminate = someSelected && !allSelected;
+  }
+}
+
+function exportSelectionToExcel() {
+  if (selectedIds.size === 0) {
+    alert('Bitte mindestens eine Stelle auswählen.');
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    alert('Excel-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.');
+    return;
+  }
+
+  const selected = entries.filter(e => selectedIds.has(e.id));
+
+  // Gruppieren nach Firma
+  const byCompany = {};
+  selected.forEach(e => {
+    const key = e.companyName || 'Unbekannt';
+    if (!byCompany[key]) byCompany[key] = [];
+    byCompany[key].push(e);
+  });
+
+  // Sortierung: Firmen alphabetisch, Stellen pro Firma nach Datum (neueste zuerst)
+  const sortedCompanies = Object.keys(byCompany).sort((a, b) => a.localeCompare(b, 'de'));
+  sortedCompanies.forEach(c => {
+    byCompany[c].sort((a, b) => (b.publicationDate || '').localeCompare(a.publicationDate || ''));
+  });
+
+  // === Reiter 1: Stellen (gruppiert nach Firma) ===
+  const sheetData1 = [
+    ['Unternehmen', 'Stelle', 'Ort', 'Bundesland', 'Veröffentlicht', 'Persönliche Akquise', 'Telefon-Akquise', 'E-Mail', 'Notizen']
+  ];
+  sortedCompanies.forEach(company => {
+    const stellen = byCompany[company];
+    // Trennzeile mit Firmenname
+    sheetData1.push([`▶ ${company}  (${stellen.length} ${stellen.length === 1 ? 'Stelle' : 'Stellen'})`, '', '', '', '', '', '', '', '']);
+    stellen.forEach(e => {
+      const state = detectState(e.city, e.country);
+      sheetData1.push([
+        e.companyName || '',
+        e.jobTitle || '',
+        e.city || '',
+        state ? STATE_NAMES[state] : '',
+        e.publicationDate ? formatDate(e.publicationDate) : '',
+        '', // Persönliche Akquise (leer zum manuellen Ausfüllen)
+        '', // Telefon-Akquise (leer zum manuellen Ausfüllen)
+        '', // E-Mail (leer zum manuellen Ausfüllen)
+        ''  // Notizen (leer zum manuellen Ausfüllen)
+      ]);
+    });
+    sheetData1.push(['', '', '', '', '', '', '', '', '']); // Leerzeile zwischen Firmen
+  });
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sheetData1);
+  // Spaltenbreite
+  ws1['!cols'] = [
+    { wch: 32 }, // Unternehmen
+    { wch: 40 }, // Stelle
+    { wch: 18 }, // Ort
+    { wch: 22 }, // Bundesland
+    { wch: 14 }, // Veröffentlicht
+    { wch: 20 }, // Persönliche Akquise
+    { wch: 20 }, // Telefon-Akquise
+    { wch: 20 }, // E-Mail
+    { wch: 40 }  // Notizen
+  ];
+
+  // Filter aktivieren auf Datenbereich
+  if (sheetData1.length > 1) {
+    ws1['!autofilter'] = { ref: `A1:I${sheetData1.length}` };
+  }
+
+  // === Reiter 2: Firmen-Übersicht ===
+  const sheetData2 = [
+    ['Unternehmen', 'Anzahl Stellen', 'Branche(n)', 'Ort(e)', 'Älteste Veröff.', 'Neueste Veröff.', 'Stellentitel (kurz)']
+  ];
+  sortedCompanies.forEach(company => {
+    const stellen = byCompany[company];
+    const branches = [...new Set(stellen.map(s => s.industry).filter(Boolean))];
+    const orte = [...new Set(stellen.map(s => s.city).filter(Boolean))];
+    const dates = stellen.map(s => s.publicationDate).filter(Boolean).sort();
+    const titles = stellen.map(s => s.jobTitle).filter(Boolean).slice(0, 3);
+    sheetData2.push([
+      company,
+      stellen.length,
+      branches.join(', '),
+      orte.join(', '),
+      dates[0] ? formatDate(dates[0]) : '',
+      dates[dates.length - 1] ? formatDate(dates[dates.length - 1]) : '',
+      titles.join(' | ')
+    ]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(sheetData2);
+  ws2['!cols'] = [
+    { wch: 32 }, // Unternehmen
+    { wch: 14 }, // Anzahl Stellen
+    { wch: 30 }, // Branchen
+    { wch: 25 }, // Orte
+    { wch: 14 }, // Älteste
+    { wch: 14 }, // Neueste
+    { wch: 60 }  // Titel
+  ];
+  if (sheetData2.length > 1) {
+    ws2['!autofilter'] = { ref: `A1:G${sheetData2.length}` };
+  }
+
+  // === Workbook erstellen ===
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Stellen');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Firmen-Übersicht');
+
+  // Datei-Name: Datum + Anzahl Stellen
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `Stellenangebote_${dateStr}_${selected.length}Stellen.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+  toast(`✓ Excel exportiert: ${selected.length} Stellen, ${sortedCompanies.length} Firmen`);
 }
 
 // --- Toast ------------------------------------------------------
