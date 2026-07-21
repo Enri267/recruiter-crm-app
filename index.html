@@ -590,6 +590,10 @@
       </select>
     </div>
     <div class="spacer"></div>
+    <button class="primary" onclick="openAkqUebernahmeModal()">➕ Aus CRM übernehmen</button>
+    <button onclick="exportAkquiseToExcel()">📥 Als Excel exportieren</button>
+  </div>
+  <div class="toolbar" style="padding-top:0; border:none;">
     <span class="muted">Regel: max. 14 Tage zwischen den Schritten Persönlich · Telefonisch · E-Mail</span>
   </div>
 
@@ -644,6 +648,37 @@
 
     <h3 style="font-size: 14px; margin: 18px 0 8px 0;">Kontakt-Historie</h3>
     <div id="akqModalHistorie"></div>
+  </div>
+</div>
+
+<!-- Modal: Unternehmen aus CRM in den Tracker übernehmen -->
+<div class="modal-backdrop" id="akqUebernahmeBackdrop">
+  <div class="modal" style="max-width: 640px;">
+    <h2>➕ Unternehmen in den Akquisetracker übernehmen</h2>
+    <p class="muted" style="margin: 4px 0 12px 0;">
+      Wähle Firmen aus dem CRM aus. Bereits übernommene Firmen werden hier
+      nicht mehr angezeigt.
+    </p>
+    <div class="field" style="margin-bottom: 10px;">
+      <label>Wie übernehmen?</label>
+      <select id="akqUebernahmeModus">
+        <option value="leer">Nur auf die Liste setzen (Status 0/3, keine Frist läuft)</option>
+        <option value="kontakt">Mit erstem Kontakt „Persönlich" heute (14-Tage-Frist startet)</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom: 10px;">
+      <input type="search" id="akqUebernahmeSearch" placeholder="Firma oder Ort suchen..." oninput="renderAkqUebernahmeListe()">
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+      <button class="ghost" type="button" onclick="akqUebernahmeAlle(true)">Alle auswählen</button>
+      <button class="ghost" type="button" onclick="akqUebernahmeAlle(false)">Keine</button>
+      <span class="muted" id="akqUebernahmeCount">0 ausgewählt</span>
+    </div>
+    <div id="akqUebernahmeListe" style="max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;"></div>
+    <div class="modal-footer" style="margin-top: 14px;">
+      <button type="button" onclick="closeAkqUebernahmeModal()">Abbrechen</button>
+      <button type="button" class="primary" onclick="akqUebernahmeBestaetigen()">Ausgewählte übernehmen</button>
+    </div>
   </div>
 </div>
 
@@ -2048,6 +2083,7 @@ const AKQ_STATUS_CFG = {
 };
 
 let akquiseKontakte = [];
+let akquiseListe = [];   // entry_ids der bewusst übernommenen Firmen
 let akqAktuelleEntryId = null;
 
 // --- Ansichten-Umschaltung ---------------------------------------
@@ -2082,9 +2118,14 @@ function akqDatumDE(iso) {
 async function loadAkquise() {
   if (!APP_KEY) return;
   try {
-    const res = await fetch(apiUrl('/api/akquise'));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    akquiseKontakte = await res.json();
+    const [resK, resL] = await Promise.all([
+      fetch(apiUrl('/api/akquise')),
+      fetch(apiUrl('/api/akquise-liste'))
+    ]);
+    if (!resK.ok) throw new Error(`Kontakte: HTTP ${resK.status}`);
+    if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
+    akquiseKontakte = await resK.json();
+    akquiseListe = (await resL.json()).map(x => x.entry_id);
     renderAkquise();
   } catch (e) {
     console.error('Fehler beim Laden der Akquise-Daten', e);
@@ -2148,7 +2189,12 @@ function renderAkquise() {
   const tbody = document.getElementById('akqTableBody');
   if (!tbody) return;
 
-  const bewertet = entries.map(e => ({ e, info: bewerteAkquise(e.id) }));
+  // Nur übernommene Firmen: eine Firma ist im Tracker, wenn sie bewusst
+  // übernommen wurde (in akquiseListe steht) – unabhängig von Kontakten.
+  const uebernommeneIds = new Set(akquiseListe);
+  const bewertet = entries
+    .filter(e => uebernommeneIds.has(e.id))
+    .map(e => ({ e, info: bewerteAkquise(e.id) }));
 
   // Alarm-Badge im Tab (Überfällig + Heute fällig)
   const alarmzahl = bewertet.filter(x => x.info.status === 'Überfällig' || x.info.status === 'Heute fällig').length;
@@ -2210,7 +2256,11 @@ function renderAkquise() {
 
   // Tabelle
   if (!liste.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center; padding: 24px;">Keine Unternehmen gefunden. Einträge werden im CRM-Tab angelegt oder importiert.</td></tr>`;
+    const nochNichts = bewertet.length === 0;
+    const text = nochNichts
+      ? 'Noch keine Unternehmen im Tracker. Klicke oben auf „➕ Aus CRM übernehmen", um Firmen hinzuzufügen.'
+      : 'Keine Unternehmen für diesen Filter gefunden.';
+    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center; padding: 24px;">${text}</td></tr>`;
     return;
   }
 
@@ -2231,7 +2281,7 @@ function renderAkquise() {
       <td><span class="akq-badge ${cfg.cls}">${cfg.emoji} ${x.info.status}</span></td>
       <td class="muted">${x.info.offen.join(', ') || '–'}</td>
       <td>${fristText}</td>
-      <td><button class="ghost" onclick="openAkqModal('${escapeHTML(x.e.id)}')" title="Kontakte ansehen und erfassen">📞 Kontakte</button></td>
+      <td><button class="ghost" onclick="openAkqModal('${escapeHTML(x.e.id)}')" title="Kontakte ansehen und erfassen">📞 Kontakte</button> <button class="ghost" onclick="removeAkqAusTracker('${escapeHTML(x.e.id)}')" title="Aus Tracker entfernen (Firma bleibt im CRM)">➖</button> <button class="ghost" onclick="deleteAkqUnternehmen('${escapeHTML(x.e.id)}')" title="Unternehmen komplett löschen (CRM und Tracker)">🗑️</button></td>
     </tr>`;
   }).join('');
 }
@@ -2321,6 +2371,243 @@ async function deleteAkquiseKontakt(id) {
 // Modal-Hintergrund-Klick schließt das Akquise-Modal
 document.getElementById('akqModalBackdrop').addEventListener('click', (e) => {
   if (e.target.id === 'akqModalBackdrop') closeAkqModal();
+});
+
+/* ================================================================
+   ERWEITERUNG: Übernehmen aus CRM · Löschen · Excel-Export
+   ================================================================ */
+
+// --- 1. Unternehmen aus CRM in den Tracker übernehmen -----------
+let akqUebernahmeAuswahl = new Set();
+
+function crmFirmenNichtImTracker() {
+  // Firmen, die noch nicht bewusst in den Tracker übernommen wurden.
+  const uebernommene = new Set(akquiseListe);
+  return entries.filter(e => !uebernommene.has(e.id));
+}
+
+function openAkqUebernahmeModal() {
+  akqUebernahmeAuswahl = new Set();
+  document.getElementById('akqUebernahmeSearch').value = '';
+  renderAkqUebernahmeListe();
+  document.getElementById('akqUebernahmeBackdrop').classList.add('open');
+}
+
+function closeAkqUebernahmeModal() {
+  document.getElementById('akqUebernahmeBackdrop').classList.remove('open');
+}
+
+function renderAkqUebernahmeListe() {
+  const q = (document.getElementById('akqUebernahmeSearch').value || '').toLowerCase().trim();
+  const container = document.getElementById('akqUebernahmeListe');
+  let firmen = crmFirmenNichtImTracker();
+  if (q) firmen = firmen.filter(e => `${e.companyName} ${e.city}`.toLowerCase().includes(q));
+  firmen.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || '', 'de'));
+
+  if (!firmen.length) {
+    container.innerHTML = `<div class="muted" style="padding: 20px; text-align:center;">${
+      q ? 'Keine passenden Firmen gefunden.' : 'Alle CRM-Firmen sind bereits im Tracker.'
+    }</div>`;
+    akqUebernahmeUpdateCount();
+    return;
+  }
+
+  container.innerHTML = firmen.map(e => `
+    <label class="akq-historie-zeile" style="cursor:pointer; margin:0; border-radius:0; border-left:none; border-right:none; border-top:none;">
+      <span style="display:flex; align-items:center; gap:10px;">
+        <input type="checkbox" ${akqUebernahmeAuswahl.has(e.id) ? 'checked' : ''}
+          onchange="akqUebernahmeToggle('${escapeHTML(e.id)}', this.checked)">
+        <span><strong>${escapeHTML(e.companyName || 'Unbekannt')}</strong>${e.city ? ` · <span class="muted">${escapeHTML(e.city)}</span>` : ''}${e.industry ? ` · <span class="muted">${escapeHTML(e.industry)}</span>` : ''}</span>
+      </span>
+    </label>`).join('');
+  akqUebernahmeUpdateCount();
+}
+
+function akqUebernahmeToggle(id, checked) {
+  if (checked) akqUebernahmeAuswahl.add(id);
+  else akqUebernahmeAuswahl.delete(id);
+  akqUebernahmeUpdateCount();
+}
+
+function akqUebernahmeAlle(select) {
+  const q = (document.getElementById('akqUebernahmeSearch').value || '').toLowerCase().trim();
+  let firmen = crmFirmenNichtImTracker();
+  if (q) firmen = firmen.filter(e => `${e.companyName} ${e.city}`.toLowerCase().includes(q));
+  if (select) firmen.forEach(e => akqUebernahmeAuswahl.add(e.id));
+  else akqUebernahmeAuswahl.clear();
+  renderAkqUebernahmeListe();
+}
+
+function akqUebernahmeUpdateCount() {
+  document.getElementById('akqUebernahmeCount').textContent = `${akqUebernahmeAuswahl.size} ausgewählt`;
+}
+
+async function akqUebernahmeBestaetigen() {
+  if (akqUebernahmeAuswahl.size === 0) {
+    alert('Bitte mindestens eine Firma auswählen.');
+    return;
+  }
+  const modus = document.getElementById('akqUebernahmeModus').value;
+  const ids = Array.from(akqUebernahmeAuswahl);
+
+  // 1. Firmen in die Tracker-Liste aufnehmen (Batch)
+  const listenEintraege = ids.map(entry_id => ({ entry_id }));
+  try {
+    const resL = await fetch(apiUrl('/api/akquise-liste'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(listenEintraege)
+    });
+    if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
+    ids.forEach(id => { if (!akquiseListe.includes(id)) akquiseListe.push(id); });
+
+    // 2. Optional: erster Kontakt "Persönlich" heute
+    if (modus === 'kontakt') {
+      const heute = akqHeute();
+      const neueKontakte = ids.map(entry_id => ({
+        id: genId(), entry_id, art: 'Persönlich', datum: heute, notiz: 'Aus CRM übernommen'
+      }));
+      const resK = await fetch(apiUrl('/api/akquise'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(neueKontakte)
+      });
+      if (!resK.ok) throw new Error(`Kontakt: HTTP ${resK.status}`);
+      akquiseKontakte.push(...neueKontakte);
+    }
+
+    const anzahl = ids.length;
+    closeAkqUebernahmeModal();
+    renderAkquise();
+    toast(`✓ ${anzahl} ${anzahl === 1 ? 'Firma' : 'Firmen'} in den Tracker übernommen`);
+  } catch (e) {
+    alert('Übernahme fehlgeschlagen: ' + e.message);
+  }
+}
+
+// --- 2. Unternehmen aus Tracker (und CRM) löschen ---------------
+// Nutzt denselben Server-Löschmechanismus wie das CRM. Durch das
+// "on delete cascade" der Datenbank verschwinden die Akquise-Kontakte
+// automatisch mit. Gleiche Sicherheitsabfrage-Logik wie im CRM.
+async function deleteAkqUnternehmen(id) {
+  const e = entries.find(x => x.id === id);
+  const name = e ? (e.companyName || 'dieses Unternehmen') : 'dieses Unternehmen';
+  if (!confirm(`„${name}" wirklich löschen?\n\nDas Unternehmen wird aus dem CRM UND dem Akquisetracker entfernt, inklusive aller erfassten Akquise-Kontakte.`)) return;
+  try {
+    await deleteEntryFromServer(id);
+    entries = entries.filter(x => x.id !== id);
+    akquiseKontakte = akquiseKontakte.filter(k => k.entry_id !== id);
+    akquiseListe = akquiseListe.filter(eid => eid !== id);
+    render();          // CRM-Ansicht aktualisieren
+    renderAkquise();   // Tracker-Ansicht aktualisieren
+    toast('Unternehmen gelöscht ✓');
+  } catch (err) {
+    alert('Fehler beim Löschen: ' + err.message);
+  }
+}
+
+// Nur aus dem Tracker entfernen – Firma bleibt im CRM erhalten.
+// Erfasste Kontakte werden dabei ebenfalls gelöscht, damit ein späteres
+// erneutes Übernehmen sauber bei 0/3 startet.
+async function removeAkqAusTracker(id) {
+  const e = entries.find(x => x.id === id);
+  const name = e ? (e.companyName || 'dieses Unternehmen') : 'dieses Unternehmen';
+  const hatKontakte = akquiseKontakte.some(k => k.entry_id === id);
+  const warnung = hatKontakte
+    ? `\n\nDie erfassten Akquise-Kontakte gehen dabei verloren.`
+    : '';
+  if (!confirm(`„${name}" aus dem Akquisetracker entfernen?\n\nDie Firma bleibt im CRM erhalten.${warnung}`)) return;
+  try {
+    // Erst Kontakte löschen (einzeln), dann Listeneintrag
+    const zuLoeschen = akquiseKontakte.filter(k => k.entry_id === id);
+    for (const k of zuLoeschen) {
+      const r = await fetch(apiUrl('/api/akquise/' + encodeURIComponent(k.id)), { method: 'DELETE' });
+      if (!r.ok) throw new Error(`Kontakt: HTTP ${r.status}`);
+    }
+    const resL = await fetch(apiUrl('/api/akquise-liste/' + encodeURIComponent(id)), { method: 'DELETE' });
+    if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
+    akquiseKontakte = akquiseKontakte.filter(k => k.entry_id !== id);
+    akquiseListe = akquiseListe.filter(eid => eid !== id);
+    renderAkquise();
+    toast('Aus Tracker entfernt ✓');
+  } catch (err) {
+    alert('Fehler beim Entfernen: ' + err.message);
+  }
+}
+
+// --- 3. Excel-Export des Trackers -------------------------------
+// Aufgebaut wie exportSelectionToExcel: Autofilter, Spaltenbreiten,
+// Datei-Name mit Datum. Exportiert nur die übernommenen Firmen.
+function exportAkquiseToExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.');
+    return;
+  }
+  const uebernommeneIds = new Set(akquiseListe);
+  const firmen = entries
+    .filter(e => uebernommeneIds.has(e.id))
+    .map(e => ({ e, info: bewerteAkquise(e.id) }));
+
+  if (firmen.length === 0) {
+    alert('Es sind noch keine Unternehmen im Tracker. Übernimm zuerst Firmen aus dem CRM.');
+    return;
+  }
+
+  // Sortierung: dringendste zuerst (gleiche Logik wie in der Tabelle)
+  firmen.sort((a, b) => {
+    const ra = AKQ_STATUS_CFG[a.info.status].rang, rb = AKQ_STATUS_CFG[b.info.status].rang;
+    if (ra !== rb) return ra - rb;
+    if (a.info.frist && b.info.frist && a.info.frist !== b.info.frist) return a.info.frist < b.info.frist ? -1 : 1;
+    return (a.e.companyName || '').localeCompare(b.e.companyName || '', 'de');
+  });
+
+  const sheetData = [
+    ['Unternehmen', 'Ort', 'Branche', 'Status', 'Fortschritt', 'Persönlich', 'Telefonisch', 'E-Mail', 'Nächste Frist', 'Fenster überschritten']
+  ];
+  firmen.forEach(({ e, info }) => {
+    sheetData.push([
+      e.companyName || '',
+      e.city || '',
+      e.industry || '',
+      info.status,
+      info.fortschritt,
+      info.erste['Persönlich'] ? akqDatumDE(info.erste['Persönlich']) : '',
+      info.erste['Telefonisch'] ? akqDatumDE(info.erste['Telefonisch']) : '',
+      info.erste['E-Mail'] ? akqDatumDE(info.erste['E-Mail']) : '',
+      info.frist ? akqDatumDE(info.frist) : '',
+      info.verletzt ? 'Ja' : ''
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws['!cols'] = [
+    { wch: 32 }, // Unternehmen
+    { wch: 18 }, // Ort
+    { wch: 20 }, // Branche
+    { wch: 30 }, // Status
+    { wch: 12 }, // Fortschritt
+    { wch: 14 }, // Persönlich
+    { wch: 14 }, // Telefonisch
+    { wch: 14 }, // E-Mail
+    { wch: 14 }, // Nächste Frist
+    { wch: 20 }  // Fenster überschritten
+  ];
+  if (sheetData.length > 1) {
+    ws['!autofilter'] = { ref: `A1:J${sheetData.length}` };
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Akquisetracker');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `Akquisetracker_${dateStr}_${firmen.length}Firmen.xlsx`;
+  XLSX.writeFile(wb, filename);
+  toast(`✓ Excel exportiert: ${firmen.length} ${firmen.length === 1 ? 'Firma' : 'Firmen'}`);
+}
+
+// Modal-Hintergrund-Klick schließt das Übernahme-Modal
+document.getElementById('akqUebernahmeBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'akqUebernahmeBackdrop') closeAkqUebernahmeModal();
 });
 
 // --- Start ------------------------------------------------------
