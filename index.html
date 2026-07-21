@@ -590,6 +590,7 @@
       </select>
     </div>
     <div class="spacer"></div>
+    <button class="primary" onclick="openAkqManuellModal()">✚ Firma manuell anlegen</button>
     <button class="primary" onclick="openAkqUebernahmeModal()">➕ Aus CRM übernehmen</button>
     <button onclick="exportAkquiseToExcel()">📥 Als Excel exportieren</button>
   </div>
@@ -678,6 +679,50 @@
     <div class="modal-footer" style="margin-top: 14px;">
       <button type="button" onclick="closeAkqUebernahmeModal()">Abbrechen</button>
       <button type="button" class="primary" onclick="akqUebernahmeBestaetigen()">Ausgewählte übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Firma manuell im Tracker anlegen -->
+<div class="modal-backdrop" id="akqManuellBackdrop">
+  <div class="modal" style="max-width: 520px;">
+    <h2>✚ Firma manuell anlegen</h2>
+    <p class="muted" style="margin: 4px 0 12px 0;">
+      Für Firmen, die (noch) nicht aus dem CRM stammen. Die Firma wird als
+      CRM-Eintrag angelegt und direkt in den Akquisetracker übernommen.
+    </p>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Firmenname *</label>
+        <input type="text" id="akqManuellName" placeholder="z. B. Muster GmbH">
+      </div>
+      <div class="form-field">
+        <label>Ort</label>
+        <input type="text" id="akqManuellOrt" placeholder="z. B. Konstanz">
+      </div>
+      <div class="form-field">
+        <label>Branche</label>
+        <input type="text" id="akqManuellBranche" placeholder="z. B. Pflege">
+      </div>
+      <div class="form-field">
+        <label>Telefon</label>
+        <input type="text" id="akqManuellTelefon" placeholder="optional">
+      </div>
+      <div class="form-field">
+        <label>E-Mail</label>
+        <input type="text" id="akqManuellEmail" placeholder="optional">
+      </div>
+      <div class="form-field full">
+        <label>Wie übernehmen?</label>
+        <select id="akqManuellModus">
+          <option value="leer">Nur auf die Liste setzen (Status 0/3, keine Frist läuft)</option>
+          <option value="kontakt">Mit erstem Kontakt „Persönlich" heute (14-Tage-Frist startet)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top: 14px;">
+      <button type="button" onclick="closeAkqManuellModal()">Abbrechen</button>
+      <button type="button" class="primary" onclick="akqManuellAnlegen()">Anlegen &amp; übernehmen</button>
     </div>
   </div>
 </div>
@@ -2604,6 +2649,92 @@ function exportAkquiseToExcel() {
   XLSX.writeFile(wb, filename);
   toast(`✓ Excel exportiert: ${firmen.length} ${firmen.length === 1 ? 'Firma' : 'Firmen'}`);
 }
+
+// --- Firma manuell anlegen (wird CRM-Eintrag + direkt in den Tracker) ---
+function openAkqManuellModal() {
+  document.getElementById('akqManuellName').value = '';
+  document.getElementById('akqManuellOrt').value = '';
+  document.getElementById('akqManuellBranche').value = '';
+  document.getElementById('akqManuellTelefon').value = '';
+  document.getElementById('akqManuellEmail').value = '';
+  document.getElementById('akqManuellModus').value = 'leer';
+  document.getElementById('akqManuellBackdrop').classList.add('open');
+  setTimeout(() => document.getElementById('akqManuellName').focus(), 50);
+}
+
+function closeAkqManuellModal() {
+  document.getElementById('akqManuellBackdrop').classList.remove('open');
+}
+
+async function akqManuellAnlegen() {
+  const name = document.getElementById('akqManuellName').value.trim();
+  if (!name) {
+    alert('Bitte einen Firmennamen angeben.');
+    return;
+  }
+  // Duplikatprüfung gegen bestehende CRM-Firmen (case-insensitiv)
+  const existiert = entries.some(e => (e.companyName || '').toLowerCase() === name.toLowerCase());
+  if (existiert && !confirm(`„${name}" existiert bereits im CRM. Trotzdem als neue Firma anlegen?`)) {
+    return;
+  }
+
+  const modus = document.getElementById('akqManuellModus').value;
+  // Vollständiges Entry-Objekt wie im CRM, leere Felder als Standard
+  const entry = {
+    id: genId(),
+    companyName: name,
+    city: document.getElementById('akqManuellOrt').value.trim(),
+    country: 'DE',
+    industry: document.getElementById('akqManuellBranche').value.trim(),
+    phone: document.getElementById('akqManuellTelefon').value.trim(),
+    email: document.getElementById('akqManuellEmail').value.trim(),
+    website: '',
+    hrName: '', hrPosition: '', hrPhone: '', hrEmail: '',
+    jobTitle: '', positionType: 'Fachkraft',
+    publicationDate: '', startDate: '',
+    source: 'Manuell (Akquise)', sourceUrl: '',
+    notes: ''
+  };
+
+  try {
+    // 1. Als CRM-Eintrag speichern
+    await saveEntryToServer(entry, true);
+    entries.push(entry);
+
+    // 2. In die Tracker-Liste aufnehmen
+    const resL = await fetch(apiUrl('/api/akquise-liste'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ entry_id: entry.id }])
+    });
+    if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
+    if (!akquiseListe.includes(entry.id)) akquiseListe.push(entry.id);
+
+    // 3. Optional: erster Kontakt "Persönlich" heute
+    if (modus === 'kontakt') {
+      const kontakt = { id: genId(), entry_id: entry.id, art: 'Persönlich', datum: akqHeute(), notiz: 'Manuell angelegt' };
+      const resK = await fetch(apiUrl('/api/akquise'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(kontakt)
+      });
+      if (!resK.ok) throw new Error(`Kontakt: HTTP ${resK.status}`);
+      akquiseKontakte.push(kontakt);
+    }
+
+    closeAkqManuellModal();
+    render();          // CRM-Ansicht (Firma erscheint dort auch)
+    renderAkquise();   // Tracker-Ansicht
+    toast(`✓ „${name}" angelegt und in den Tracker übernommen`);
+  } catch (e) {
+    alert('Anlegen fehlgeschlagen: ' + e.message);
+  }
+}
+
+// Modal-Hintergrund-Klick schließt das manuelle Modal
+document.getElementById('akqManuellBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'akqManuellBackdrop') closeAkqManuellModal();
+});
 
 // Modal-Hintergrund-Klick schließt das Übernahme-Modal
 document.getElementById('akqUebernahmeBackdrop').addEventListener('click', (e) => {
