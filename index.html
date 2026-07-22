@@ -2490,11 +2490,11 @@ async function saveAkquiseKontakt() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     akquiseKontakte.push(kontakt);
 
-    // Wiedervorlage automatisch auf +14 Tage vorschlagen (überschreibbar),
-    // sofern die Firma noch offen ist und der Nutzer nicht schon selbst eine gesetzt hat.
+    // Wiedervorlage nur dann automatisch auf +14 Tage vorschlagen, wenn noch
+    // KEINE gesetzt ist. Eine vom Nutzer manuell gesetzte Frist bleibt erhalten.
     const info = bewerteAkquise(akqAktuelleEntryId);
     const meta = akquiseMeta[akqAktuelleEntryId] || {};
-    if (!meta.kein_interesse && info.offen.length > 0) {
+    if (!meta.kein_interesse && info.offen.length > 0 && !meta.wiedervorlage) {
       const neueFrist = akqAddTage(datum, AKQ_MAX_TAGE);
       const feld = document.getElementById('akqMetaWiedervorlage');
       feld.value = neueFrist;
