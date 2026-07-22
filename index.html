@@ -382,6 +382,7 @@
   .akq-nicht          { background: #f3f4f6; color: #6b7280; }
   .akq-fertig         { background: #d1fae5; color: #065f46; }
   .akq-fertig-warn    { background: #e5e7eb; color: #374151; }
+  .akq-kein-interesse { background: #fee2e2; color: #7f1d1d; }
 
   .akq-alert {
     border-radius: var(--radius);
@@ -410,6 +411,7 @@
   }
   .akq-schritt.done { background: var(--success); color: white; }
   .akq-schritt.open { background: var(--surface-2); color: var(--text-muted); border: 1px dashed var(--border); }
+  .akq-schritt.kein-interesse { background: var(--danger); color: white; }
 
   .akq-historie-zeile {
     display: flex;
@@ -605,6 +607,7 @@
         <tr>
           <th>Unternehmen</th>
           <th>Ort</th>
+          <th>Ansprechpartner</th>
           <th>Schritte</th>
           <th>Status</th>
           <th>Offen</th>
@@ -623,6 +626,26 @@
   <div class="modal" style="max-width: 560px;">
     <h2 id="akqModalTitle">Akquise</h2>
     <div id="akqModalStatus" style="margin-bottom: 14px;"></div>
+
+    <!-- Firmen-Einstellungen (Bearbeiter, Wiedervorlage, Kein Interesse) -->
+    <div class="form-grid" style="padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border);">
+      <div class="form-field">
+        <label>Ansprechpartner</label>
+        <select id="akqMetaBearbeiter" onchange="saveAkqMeta()">
+          <option value="">– nicht zugewiesen –</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Nächste Wiedervorlage</label>
+        <input type="date" id="akqMetaWiedervorlage" onchange="saveAkqMeta()">
+      </div>
+      <div class="form-field full">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="akqMetaKeinInteresse" onchange="saveAkqMeta()" style="width:auto;">
+          <span>✕ Kein Interesse – Firma gilt als abgeschlossen, keine Frist mehr</span>
+        </label>
+      </div>
+    </div>
 
     <div class="form-grid">
       <div class="form-field">
@@ -711,13 +734,6 @@
       <div class="form-field">
         <label>E-Mail</label>
         <input type="text" id="akqManuellEmail" placeholder="optional">
-      </div>
-      <div class="form-field full">
-        <label>Wie übernehmen?</label>
-        <select id="akqManuellModus">
-          <option value="leer">Nur auf die Liste setzen (Status 0/3, keine Frist läuft)</option>
-          <option value="kontakt">Mit erstem Kontakt „Persönlich" heute (14-Tage-Frist startet)</option>
-        </select>
       </div>
     </div>
     <div class="modal-footer" style="margin-top: 14px;">
@@ -2114,6 +2130,7 @@ document.getElementById('modalBackdrop').addEventListener('click', (e) => {
    ================================================================ */
 
 const AKQUISE_ARTEN = ['Persönlich', 'Telefonisch', 'E-Mail'];
+const AKQ_TEAM = ['Enrico', 'Jonas', 'Komang'];
 const AKQ_MAX_TAGE = 14;
 const AKQ_WARN_TAGE = 3;
 
@@ -2124,11 +2141,13 @@ const AKQ_STATUS_CFG = {
   'Im Rhythmus':     { emoji: '🟢', cls: 'akq-rhythmus',     rang: 3 },
   'Nicht gestartet': { emoji: '⚪', cls: 'akq-nicht',         rang: 4 },
   'Abgeschlossen':   { emoji: '✅', cls: 'akq-fertig',        rang: 5 },
-  'Abgeschlossen (Frist überschritten)': { emoji: '☑️', cls: 'akq-fertig-warn', rang: 6 }
+  'Abgeschlossen (Frist überschritten)': { emoji: '☑️', cls: 'akq-fertig-warn', rang: 6 },
+  'Kein Interesse':  { emoji: '✕', cls: 'akq-kein-interesse', rang: 7 }
 };
 
 let akquiseKontakte = [];
 let akquiseListe = [];   // entry_ids der bewusst übernommenen Firmen
+let akquiseMeta = {};    // entry_id -> { bearbeiter, wiedervorlage, kein_interesse }
 let akqAktuelleEntryId = null;
 
 // --- Ansichten-Umschaltung ---------------------------------------
@@ -2170,7 +2189,16 @@ async function loadAkquise() {
     if (!resK.ok) throw new Error(`Kontakte: HTTP ${resK.status}`);
     if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
     akquiseKontakte = await resK.json();
-    akquiseListe = (await resL.json()).map(x => x.entry_id);
+    const liste = await resL.json();
+    akquiseListe = liste.map(x => x.entry_id);
+    akquiseMeta = {};
+    liste.forEach(x => {
+      akquiseMeta[x.entry_id] = {
+        bearbeiter: x.bearbeiter || '',
+        wiedervorlage: x.wiedervorlage || null,
+        kein_interesse: !!x.kein_interesse
+      };
+    });
     renderAkquise();
   } catch (e) {
     console.error('Fehler beim Laden der Akquise-Daten', e);
@@ -2180,6 +2208,20 @@ async function loadAkquise() {
 
 // --- Kernlogik: Bewertung eines Unternehmens ---------------------
 function bewerteAkquise(entryId) {
+  const meta = akquiseMeta[entryId] || {};
+
+  // "Kein Interesse" blockt: Firma gilt als abgeschlossen, keine Frist mehr.
+  if (meta.kein_interesse) {
+    const kontakte0 = akquiseKontakte.filter(k => k.entry_id === entryId);
+    const erste0 = {};
+    kontakte0.forEach(k => { if (!(k.art in erste0)) erste0[k.art] = String(k.datum).slice(0, 10); });
+    return {
+      erledigt: AKQUISE_ARTEN.filter(a => a in erste0),
+      offen: [], fortschritt: '–', status: 'Kein Interesse',
+      frist: null, tage: null, verletzt: false, erste: erste0, keinInteresse: true
+    };
+  }
+
   const kontakte = akquiseKontakte
     .filter(k => k.entry_id === entryId)
     .slice()
@@ -2192,7 +2234,20 @@ function bewerteAkquise(entryId) {
   const erledigt = AKQUISE_ARTEN.filter(a => a in erste);
   const offen = AKQUISE_ARTEN.filter(a => !(a in erste));
 
+  // Manuelle Wiedervorlage hat Vorrang vor der +14-Tage-Automatik
+  const manuelleFrist = meta.wiedervorlage || null;
+
   if (erledigt.length === 0) {
+    // Auch ohne Kontakt kann eine manuelle Wiedervorlage gesetzt sein
+    if (manuelleFrist) {
+      const tage = akqDiffTage(akqHeute(), manuelleFrist);
+      let status;
+      if (tage < 0) status = 'Überfällig';
+      else if (tage === 0) status = 'Heute fällig';
+      else if (tage <= AKQ_WARN_TAGE) status = 'Bald fällig';
+      else status = 'Im Rhythmus';
+      return { erledigt, offen, fortschritt: '0/3', status, frist: manuelleFrist, tage, verletzt: false, erste };
+    }
     return { erledigt, offen, fortschritt: '0/3', status: 'Nicht gestartet', frist: null, tage: null, verletzt: false, erste };
   }
 
@@ -2207,8 +2262,9 @@ function bewerteAkquise(entryId) {
     return { erledigt, offen, fortschritt: '3/3', status, frist: null, tage: null, verletzt, erste };
   }
 
+  // Frist: manuelle Wiedervorlage, sonst letzter Kontakt + 14 Tage (Fallback)
   const letzter = daten[daten.length - 1];
-  const frist = akqAddTage(letzter, AKQ_MAX_TAGE);
+  const frist = manuelleFrist || akqAddTage(letzter, AKQ_MAX_TAGE);
   const tage = akqDiffTage(akqHeute(), frist);
 
   let status;
@@ -2222,12 +2278,17 @@ function bewerteAkquise(entryId) {
 
 // --- Rendering ----------------------------------------------------
 function akqSchritteHTML(info) {
-  return AKQUISE_ARTEN.map(art => {
+  const schritte = AKQUISE_ARTEN.map(art => {
     const done = info.erledigt.includes(art);
     const kuerzel = art === 'Persönlich' ? 'P' : (art === 'Telefonisch' ? 'T' : '@');
     const titel = done ? `${art}: ${akqDatumDE(info.erste[art])}` : `${art}: noch offen`;
     return `<span class="akq-schritt ${done ? 'done' : 'open'}" title="${escapeHTML(titel)}">${kuerzel}</span>`;
   }).join('');
+  // "Kein Interesse" als viertes Symbol (X), nur wenn gesetzt
+  if (info.keinInteresse) {
+    return schritte + `<span class="akq-schritt kein-interesse" title="Kein Interesse an Zusammenarbeit">✕</span>`;
+  }
+  return schritte;
 }
 
 function renderAkquise() {
@@ -2259,7 +2320,8 @@ function renderAkquise() {
     <div class="stat-card" style="border-left: 3px solid var(--danger);"><div class="label">🔴 Überfällig</div><div class="value">${zaehle('Überfällig')}</div></div>
     <div class="stat-card warning"><div class="label">🟠 Heute fällig</div><div class="value">${zaehle('Heute fällig')}</div></div>
     <div class="stat-card accent"><div class="label">🟡 Bald fällig</div><div class="value">${zaehle('Bald fällig')}</div></div>
-    <div class="stat-card success"><div class="label">✅ Abgeschlossen</div><div class="value">${nAbgeschlossen}</div></div>`;
+    <div class="stat-card success"><div class="label">✅ Abgeschlossen</div><div class="value">${nAbgeschlossen}</div></div>
+    <div class="stat-card" style="border-left: 3px solid var(--danger);"><div class="label">✕ Kein Interesse</div><div class="value">${zaehle('Kein Interesse')}</div></div>`;
 
   // Alarm-Listen
   const alerts = document.getElementById('akqAlerts');
@@ -2305,7 +2367,7 @@ function renderAkquise() {
     const text = nochNichts
       ? 'Noch keine Unternehmen im Tracker. Klicke oben auf „➕ Aus CRM übernehmen", um Firmen hinzuzufügen.'
       : 'Keine Unternehmen für diesen Filter gefunden.';
-    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center; padding: 24px;">${text}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center; padding: 24px;">${text}</td></tr>`;
     return;
   }
 
@@ -2318,10 +2380,15 @@ function renderAkquise() {
       else if (x.info.tage === 0) fristText += ' (heute)';
       else fristText += ` <span class="muted">(in ${x.info.tage} T.)</span>`;
     }
-    const warnung = x.info.verletzt ? ' <span title="2-Wochen-Fenster wurde mindestens einmal überschritten">⚠️</span>' : '';
+    const warnung = x.info.verletzt ? ' <span title="2-Wochen-Fenster wurde mindestens überschritten">⚠️</span>' : '';
+    const bearbeiter = (akquiseMeta[x.e.id] && akquiseMeta[x.e.id].bearbeiter) || '';
+    const bearbeiterHTML = bearbeiter
+      ? `<span class="badge">${escapeHTML(bearbeiter)}</span>`
+      : '<span class="muted">–</span>';
     return `<tr>
       <td><span class="company-name">${escapeHTML(x.e.companyName)}</span>${warnung}</td>
       <td>${escapeHTML(x.e.city || '')}</td>
+      <td>${bearbeiterHTML}</td>
       <td>${akqSchritteHTML(x.info)} <span class="muted">${x.info.fortschritt}</span></td>
       <td><span class="akq-badge ${cfg.cls}">${cfg.emoji} ${x.info.status}</span></td>
       <td class="muted">${x.info.offen.join(', ') || '–'}</td>
@@ -2339,8 +2406,40 @@ function openAkqModal(entryId) {
   document.getElementById('akqModalTitle').textContent = '📞 ' + (e.companyName || 'Unternehmen');
   document.getElementById('akqModalDatum').value = akqHeute();
   document.getElementById('akqModalNotiz').value = '';
+
+  // Bearbeiter-Dropdown befüllen
+  const meta = akquiseMeta[entryId] || {};
+  const selBearb = document.getElementById('akqMetaBearbeiter');
+  selBearb.innerHTML = '<option value="">– nicht zugewiesen –</option>' +
+    AKQ_TEAM.map(n => `<option value="${escapeHTML(n)}">${escapeHTML(n)}</option>`).join('');
+  selBearb.value = meta.bearbeiter || '';
+  document.getElementById('akqMetaWiedervorlage').value = meta.wiedervorlage || '';
+  document.getElementById('akqMetaKeinInteresse').checked = !!meta.kein_interesse;
+
   refreshAkqModal();
   document.getElementById('akqModalBackdrop').classList.add('open');
+}
+
+// Firmen-Metadaten speichern (Bearbeiter, Wiedervorlage, Kein Interesse)
+async function saveAkqMeta() {
+  if (!akqAktuelleEntryId) return;
+  const bearbeiter = document.getElementById('akqMetaBearbeiter').value;
+  const wiedervorlage = document.getElementById('akqMetaWiedervorlage').value || null;
+  const kein_interesse = document.getElementById('akqMetaKeinInteresse').checked;
+  try {
+    const res = await fetch(apiUrl('/api/akquise-liste/' + encodeURIComponent(akqAktuelleEntryId)), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bearbeiter, wiedervorlage, kein_interesse })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    akquiseMeta[akqAktuelleEntryId] = { bearbeiter, wiedervorlage, kein_interesse };
+    refreshAkqModal();
+    renderAkquise();
+    toast('Gespeichert ✓');
+  } catch (e) {
+    toast('⚠ Speichern fehlgeschlagen: ' + e.message);
+  }
 }
 
 function refreshAkqModal() {
@@ -2390,6 +2489,18 @@ async function saveAkquiseKontakt() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     akquiseKontakte.push(kontakt);
+
+    // Wiedervorlage automatisch auf +14 Tage vorschlagen (überschreibbar),
+    // sofern die Firma noch offen ist und der Nutzer nicht schon selbst eine gesetzt hat.
+    const info = bewerteAkquise(akqAktuelleEntryId);
+    const meta = akquiseMeta[akqAktuelleEntryId] || {};
+    if (!meta.kein_interesse && info.offen.length > 0) {
+      const neueFrist = akqAddTage(datum, AKQ_MAX_TAGE);
+      const feld = document.getElementById('akqMetaWiedervorlage');
+      feld.value = neueFrist;
+      await saveAkqMeta();
+    }
+
     document.getElementById('akqModalNotiz').value = '';
     toast(`${art}er Kontakt gespeichert ✓`);
     refreshAkqModal();
@@ -2504,7 +2615,10 @@ async function akqUebernahmeBestaetigen() {
       body: JSON.stringify(listenEintraege)
     });
     if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
-    ids.forEach(id => { if (!akquiseListe.includes(id)) akquiseListe.push(id); });
+    ids.forEach(id => {
+      if (!akquiseListe.includes(id)) akquiseListe.push(id);
+      if (!akquiseMeta[id]) akquiseMeta[id] = { bearbeiter: '', wiedervorlage: null, kein_interesse: false };
+    });
 
     // 2. Optional: erster Kontakt "Persönlich" heute
     if (modus === 'kontakt') {
@@ -2543,6 +2657,7 @@ async function deleteAkqUnternehmen(id) {
     entries = entries.filter(x => x.id !== id);
     akquiseKontakte = akquiseKontakte.filter(k => k.entry_id !== id);
     akquiseListe = akquiseListe.filter(eid => eid !== id);
+    delete akquiseMeta[id];
     render();          // CRM-Ansicht aktualisieren
     renderAkquise();   // Tracker-Ansicht aktualisieren
     toast('Unternehmen gelöscht ✓');
@@ -2573,6 +2688,7 @@ async function removeAkqAusTracker(id) {
     if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
     akquiseKontakte = akquiseKontakte.filter(k => k.entry_id !== id);
     akquiseListe = akquiseListe.filter(eid => eid !== id);
+    delete akquiseMeta[id];
     renderAkquise();
     toast('Aus Tracker entfernt ✓');
   } catch (err) {
@@ -2607,13 +2723,15 @@ function exportAkquiseToExcel() {
   });
 
   const sheetData = [
-    ['Unternehmen', 'Ort', 'Branche', 'Status', 'Fortschritt', 'Persönlich', 'Telefonisch', 'E-Mail', 'Nächste Frist', 'Fenster überschritten']
+    ['Unternehmen', 'Ort', 'Branche', 'Ansprechpartner', 'Status', 'Fortschritt', 'Persönlich', 'Telefonisch', 'E-Mail', 'Nächste Frist', 'Fenster überschritten']
   ];
   firmen.forEach(({ e, info }) => {
+    const bearbeiter = (akquiseMeta[e.id] && akquiseMeta[e.id].bearbeiter) || '';
     sheetData.push([
       e.companyName || '',
       e.city || '',
       e.industry || '',
+      bearbeiter,
       info.status,
       info.fortschritt,
       info.erste['Persönlich'] ? akqDatumDE(info.erste['Persönlich']) : '',
@@ -2629,6 +2747,7 @@ function exportAkquiseToExcel() {
     { wch: 32 }, // Unternehmen
     { wch: 18 }, // Ort
     { wch: 20 }, // Branche
+    { wch: 16 }, // Ansprechpartner
     { wch: 30 }, // Status
     { wch: 12 }, // Fortschritt
     { wch: 14 }, // Persönlich
@@ -2638,7 +2757,7 @@ function exportAkquiseToExcel() {
     { wch: 20 }  // Fenster überschritten
   ];
   if (sheetData.length > 1) {
-    ws['!autofilter'] = { ref: `A1:J${sheetData.length}` };
+    ws['!autofilter'] = { ref: `A1:K${sheetData.length}` };
   }
 
   const wb = XLSX.utils.book_new();
@@ -2657,7 +2776,6 @@ function openAkqManuellModal() {
   document.getElementById('akqManuellBranche').value = '';
   document.getElementById('akqManuellTelefon').value = '';
   document.getElementById('akqManuellEmail').value = '';
-  document.getElementById('akqManuellModus').value = 'leer';
   document.getElementById('akqManuellBackdrop').classList.add('open');
   setTimeout(() => document.getElementById('akqManuellName').focus(), 50);
 }
@@ -2678,7 +2796,6 @@ async function akqManuellAnlegen() {
     return;
   }
 
-  const modus = document.getElementById('akqManuellModus').value;
   // Vollständiges Entry-Objekt wie im CRM, leere Felder als Standard
   const entry = {
     id: genId(),
@@ -2701,7 +2818,7 @@ async function akqManuellAnlegen() {
     await saveEntryToServer(entry, true);
     entries.push(entry);
 
-    // 2. In die Tracker-Liste aufnehmen
+    // 2. Leer in die Tracker-Liste aufnehmen (Status 0/3, keine Frist)
     const resL = await fetch(apiUrl('/api/akquise-liste'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2709,18 +2826,7 @@ async function akqManuellAnlegen() {
     });
     if (!resL.ok) throw new Error(`Liste: HTTP ${resL.status}`);
     if (!akquiseListe.includes(entry.id)) akquiseListe.push(entry.id);
-
-    // 3. Optional: erster Kontakt "Persönlich" heute
-    if (modus === 'kontakt') {
-      const kontakt = { id: genId(), entry_id: entry.id, art: 'Persönlich', datum: akqHeute(), notiz: 'Manuell angelegt' };
-      const resK = await fetch(apiUrl('/api/akquise'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(kontakt)
-      });
-      if (!resK.ok) throw new Error(`Kontakt: HTTP ${resK.status}`);
-      akquiseKontakte.push(kontakt);
-    }
+    akquiseMeta[entry.id] = { bearbeiter: '', wiedervorlage: null, kein_interesse: false };
 
     closeAkqManuellModal();
     render();          // CRM-Ansicht (Firma erscheint dort auch)
