@@ -384,6 +384,23 @@
   .akq-fertig-warn    { background: #e5e7eb; color: #374151; }
   .akq-kein-interesse { background: #fee2e2; color: #7f1d1d; }
 
+  .akq-stammdaten {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .akq-stammdaten.leer { color: var(--text-muted); font-style: italic; }
+  .akq-sd-zeile { display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; }
+  .akq-sd-zeile a { color: var(--accent); text-decoration: none; }
+  .akq-sd-zeile a:hover { text-decoration: underline; }
+  .akq-sd-sep { color: var(--border); margin: 0 4px; }
+  .akq-sd-hr { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }
+  .akq-sd-label { color: var(--text-muted); font-weight: 600; }
+
   .akq-alert {
     border-radius: var(--radius);
     border: 1px solid;
@@ -626,6 +643,9 @@
   <div class="modal" style="max-width: 560px;">
     <h2 id="akqModalTitle">Akquise</h2>
     <div id="akqModalStatus" style="margin-bottom: 14px;"></div>
+
+    <!-- Firmen-Stammdaten (Telefon, E-Mail, Website, HR-Ansprechpartner) -->
+    <div id="akqModalStammdaten"></div>
 
     <!-- Firmen-Einstellungen (Bearbeiter, Wiedervorlage, Kein Interesse) -->
     <div class="form-grid" style="padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border);">
@@ -2399,6 +2419,34 @@ function renderAkquise() {
 }
 
 // --- Modal: Kontakte eines Unternehmens ---------------------------
+// Firmen-Stammdaten als kompakter Info-Block (nur befüllte Felder anzeigen)
+function akqStammdatenHTML(e) {
+  const zeilen = [];
+  // Firmen-Kontakt
+  if (e.phone) zeilen.push(`<span>📞 <a href="tel:${escapeHTML(e.phone)}">${escapeHTML(e.phone)}</a></span>`);
+  if (e.email) zeilen.push(`<span>✉️ <a href="mailto:${escapeHTML(e.email)}">${escapeHTML(e.email)}</a></span>`);
+  if (e.website) {
+    const url = e.website.startsWith('http') ? e.website : 'https://' + e.website;
+    zeilen.push(`<span>🌐 <a href="${escapeHTML(url)}" target="_blank" rel="noopener">${escapeHTML(e.website)}</a></span>`);
+  }
+
+  // HR-Ansprechpartner (Kontaktperson bei der Firma)
+  const hr = [];
+  if (e.hrName) hr.push(`<strong>${escapeHTML(e.hrName)}</strong>${e.hrPosition ? ' · ' + escapeHTML(e.hrPosition) : ''}`);
+  if (e.hrPhone) hr.push(`📞 <a href="tel:${escapeHTML(e.hrPhone)}">${escapeHTML(e.hrPhone)}</a>`);
+  if (e.hrEmail) hr.push(`✉️ <a href="mailto:${escapeHTML(e.hrEmail)}">${escapeHTML(e.hrEmail)}</a>`);
+
+  if (zeilen.length === 0 && hr.length === 0) {
+    return `<div class="akq-stammdaten leer">Keine Kontaktdaten hinterlegt. Im CRM-Tab bei dieser Firma ergänzbar.</div>`;
+  }
+
+  let html = '<div class="akq-stammdaten">';
+  if (zeilen.length) html += `<div class="akq-sd-zeile">${zeilen.join('<span class="akq-sd-sep">·</span>')}</div>`;
+  if (hr.length) html += `<div class="akq-sd-zeile akq-sd-hr"><span class="akq-sd-label">Ansprechpartner Firma:</span> ${hr.join(' · ')}</div>`;
+  html += '</div>';
+  return html;
+}
+
 function openAkqModal(entryId) {
   akqAktuelleEntryId = entryId;
   const e = entries.find(x => x.id === entryId);
@@ -2406,6 +2454,9 @@ function openAkqModal(entryId) {
   document.getElementById('akqModalTitle').textContent = '📞 ' + (e.companyName || 'Unternehmen');
   document.getElementById('akqModalDatum').value = akqHeute();
   document.getElementById('akqModalNotiz').value = '';
+
+  // Firmen-Stammdaten anzeigen (klickbare Telefon-/E-Mail-Links, wie im CRM)
+  document.getElementById('akqModalStammdaten').innerHTML = akqStammdatenHTML(e);
 
   // Bearbeiter-Dropdown befüllen
   const meta = akquiseMeta[entryId] || {};
