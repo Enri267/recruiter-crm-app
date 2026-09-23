@@ -2436,13 +2436,17 @@ function akqStammdatenHTML(e) {
   if (e.hrPhone) hr.push(`📞 <a href="tel:${escapeHTML(e.hrPhone)}">${escapeHTML(e.hrPhone)}</a>`);
   if (e.hrEmail) hr.push(`✉️ <a href="mailto:${escapeHTML(e.hrEmail)}">${escapeHTML(e.hrEmail)}</a>`);
 
-  if (zeilen.length === 0 && hr.length === 0) {
+  // Notiz aus dem CRM (z. B. Absagegrund) – wird beim Telefonieren direkt sichtbar
+  const notiz = (e.notes || '').trim();
+
+  if (zeilen.length === 0 && hr.length === 0 && !notiz) {
     return `<div class="akq-stammdaten leer">Keine Kontaktdaten hinterlegt. Im CRM-Tab bei dieser Firma ergänzbar.</div>`;
   }
 
   let html = '<div class="akq-stammdaten">';
   if (zeilen.length) html += `<div class="akq-sd-zeile">${zeilen.join('<span class="akq-sd-sep">·</span>')}</div>`;
   if (hr.length) html += `<div class="akq-sd-zeile akq-sd-hr"><span class="akq-sd-label">Ansprechpartner Firma:</span> ${hr.join(' · ')}</div>`;
+  if (notiz) html += `<div class="akq-sd-zeile akq-sd-hr"><span class="akq-sd-label">Notiz:</span> ${escapeHTML(notiz).replace(/\n/g, '<br>')}</div>`;
   html += '</div>';
   return html;
 }
